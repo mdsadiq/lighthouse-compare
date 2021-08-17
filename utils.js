@@ -7,7 +7,7 @@ const axios = require('axios');
  * @return {string} project id
  */
 const getProjectID = async function(url, core) {
-  await axios.get({ url }).then(function (response) {
+  await axios.get(url).then(function (response) {
     console.log('response', response.data);
     core.info('github payload', response.data);
     return response.data[0].id
@@ -25,7 +25,7 @@ const getProjectID = async function(url, core) {
  * @return {Object} 
  */
 const getURLsToTest = async function(url){
-  await axios.get({ url }).then(function (response) {
+  await axios.get(url).then(function (response) {
     return response.data
   }).catch(function (error) {
     // handle error
@@ -40,7 +40,7 @@ const getURLsToTest = async function(url){
  * @return {Object} 
  */
 const getBaseBranchInfo = async function getBaseBranchInfo(url){
-  await axios.get({ url }).then(function (response) {
+  await axios.get(url).then(function (response) {
     console.log('getBaseBranchInfo', response.data);
     if(response.data.length > 0) return response.data[0];
     throw new Error('No build available from base branch');
@@ -58,7 +58,7 @@ const getBaseBranchInfo = async function getBaseBranchInfo(url){
  * @return {Object} 
  */
 const getPRBranchInfo = async function getPRBranchInfo(url, commitHash) {
-  await axios.get({ url }).then(function (response) {
+  await axios.get(url).then(function (response) {
     console.log('getPRBranchInfo', response.data);
     const selectedBuild = response.data.find(build => build.hash === commitHash)
     return selectedBuild.length > 0 ? selectedBuild[0] : null;
