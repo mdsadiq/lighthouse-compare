@@ -38,7 +38,8 @@ async function run() {
 
     const projectURL = `${lhciAppURL}/v1/projects`;
     let projectID = await getProjectID(projectURL, core);
-    
+    console.log('Project ID identified : ', projectID)
+
     // get all urls where lhci have to be tested
     // const listURL = `${lhciAppURL}/v1/projects/${projectID}/urls`
     // const collectURLList = await getURLsToTest(listURL);
@@ -47,18 +48,21 @@ async function run() {
     // find base build id
     const masterBranchName = 'master'; // main in new repos
     const baseBranchBuildURL = `${lhciAppURL}/v1/projects/${projectID}/builds?branch=${masterBranchName}&limit=20`;
+    console.log('baseBranchBuildURL', baseBranchBuildURL)
     /*
     *   get branch information about base branch (ideally master or main)
     *   returns {Object}
     */
     const baseBranchInfo = await getBaseBranchInfo(baseBranchBuildURL);
+    console.log('baseBranchInfo obtained', baseBranchInfo)
     
     // get id of commit to compare
     const currentCommitHash = context.number;
+    console.log('PRBranchURL', PRBranchURL, currentCommitHash)
     
     const PRBranchURL = `${lhciAppURL}/v1/projects/${projectID}/builds?limit=30`;
     const PRBranchInfo = await getPRBranchInfo(PRBranchURL, currentCommitHash);
-
+    console.log('PRBranchInfo obtained', PRBranchInfo)
     // get report for each branch
     const lhciDataURL =`${projectURL}/${projectID}/builds/$$buildId$$/runs?representative=true}`
     
@@ -9959,7 +9963,6 @@ const axios = __nccwpck_require__(6545);
 const getProjectID = async function(url, core) {
   await axios.get(url).then(function (response) {
     console.log('response', response.data);
-    core.info('github payload', response.data);
     return response.data[0].id
   }).catch(function (error) {
     // handle error

@@ -9,7 +9,6 @@ const axios = require('axios');
 const getProjectID = async function(url, core) {
   await axios.get(url).then(function (response) {
     console.log('response', response.data);
-    core.info('github payload', response.data);
     return response.data[0].id
   }).catch(function (error) {
     // handle error
