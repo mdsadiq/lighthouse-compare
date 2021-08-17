@@ -7,20 +7,19 @@ require('./sourcemap-register.js');module.exports =
 
 const core = __nccwpck_require__(2186);
 const github = __nccwpck_require__(5438);
-const wait = __nccwpck_require__(4258);
 const { getProjectID, getURLsToTest, getBaseBranchInfo, getPRBranchInfo, getReportData, postResultsToPullRequest } = __nccwpck_require__(1252);
 
 const context = github.context;
 
 // most @actions toolkit packages have async methods
 async function run() {
-  const secret = core.getInput('secret');
+  // const secret = core.getInput('secret');
   const lhciAppURL = core.getInput('lhci-server');
   
-  if (!secret) {
-    core.setFailed('secret not defined');
-    core.warning('');
-  }
+  // if (!secret) {
+  //   core.setFailed('secret not defined');
+  //   core.warning('');
+  // }
   if(!lhciAppURL){
     core.setFailed('Lighthouse Server URL not provided');
   }
@@ -32,14 +31,13 @@ async function run() {
     core.info(`Waiting ${ms} milliseconds ...`);
 
     core.debug((new Date()).toTimeString()); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
-    await wait(parseInt(ms));
-    core.info((new Date()).toTimeString());
+    // await wait(parseInt(ms));
     
     // get project details
     // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com';
 
     const projectURL = `${lhciAppURL}/v1/projects`;
-    let projectID = await getProjectID(projectURL);
+    let projectID = await getProjectID(projectURL, core);
     
     // get all urls where lhci have to be tested
     // const listURL = `${lhciAppURL}/v1/projects/${projectID}/urls`
@@ -70,9 +68,10 @@ async function run() {
 
     console.log('collectLightHouseData', collectLightHouseData)
 
-    // wip
-    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github, secret)
 
+    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github)
+    core.info((new Date()).toTimeString());
+    core.info(prComment);
     // core.setOutput('time', new Date().toTimeString());
   } catch (error) {
     core.setFailed(error.message);
@@ -9957,12 +9956,14 @@ const axios = __nccwpck_require__(6545);
  * @param {string} url - URL to send request.
  * @return {string} project id
  */
-const getProjectID = async function(url) {
+const getProjectID = async function(url, core) {
   await axios.get({ url }).then(function (response) {
-    console.log(response);
+    console.log('response', response.data);
+    core.info('github payload', response.data);
     return response.data[0].id
   }).catch(function (error) {
     // handle error
+    core.info('github payload error', error);
     console.log(error, 'error fetching project id');
   })
 };
@@ -10098,22 +10099,23 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(c
  */
 const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, secret) {
   const string = parseLighthouseResultsToString(lhr);
-
+  core.info('github payload', github.context.payload);
   if (
     github.context.payload.pull_request &&
     github.context.payload.pull_request.comments_url &&
     secret
   ) {
-    await axios(github.context.payload.pull_request.comments_url, {
+    const postComment = await axios(github.context.payload.pull_request.comments_url, {
       method: 'post',
       body: JSON.stringify({
         body: string,
       }),
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${secret}`,
+        authorization: `Bearer ${github.token}`,
       },
     });
+    return postComment
   } else {
     core.info('Missing pull request info or comments_url in contexts or secret');
     core.info(github.context.payload);
@@ -10128,23 +10130,6 @@ module.exports = {
   getReportData,
   getPRBranchInfo
 };
-
-
-/***/ }),
-
-/***/ 4258:
-/***/ ((module) => {
-
-let wait = function (milliseconds) {
-  return new Promise((resolve) => {
-    if (typeof milliseconds !== 'number') {
-      throw new Error('milliseconds not a number');
-    }
-    setTimeout(() => resolve("done!"), milliseconds)
-  });
-};
-
-module.exports = wait;
 
 
 /***/ }),
