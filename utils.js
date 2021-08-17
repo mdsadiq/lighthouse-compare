@@ -6,12 +6,14 @@ const axios = require('axios');
  * @param {string} url - URL to send request.
  * @return {string} project id
  */
-const getProjectID = async function(url) {
+const getProjectID = async function(url, core) {
   await axios.get({ url }).then(function (response) {
-    console.log(response);
+    console.log('response', response.data);
+    core.info('github payload', response.data);
     return response.data[0].id
   }).catch(function (error) {
     // handle error
+    core.info('github payload error', error);
     console.log(error, 'error fetching project id');
   })
 };
@@ -147,22 +149,23 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(c
  */
 const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, secret) {
   const string = parseLighthouseResultsToString(lhr);
-
+  core.info('github payload', github.context.payload);
   if (
     github.context.payload.pull_request &&
     github.context.payload.pull_request.comments_url &&
     secret
   ) {
-    await axios(github.context.payload.pull_request.comments_url, {
+    const postComment = await axios(github.context.payload.pull_request.comments_url, {
       method: 'post',
       body: JSON.stringify({
         body: string,
       }),
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${secret}`,
+        authorization: `Bearer ${github.token}`,
       },
     });
+    return postComment
   } else {
     core.info('Missing pull request info or comments_url in contexts or secret');
     core.info(github.context.payload);

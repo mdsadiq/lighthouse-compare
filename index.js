@@ -1,19 +1,18 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
-const wait = require('./wait');
 const { getProjectID, getURLsToTest, getBaseBranchInfo, getPRBranchInfo, getReportData, postResultsToPullRequest } = require('./utils');
 
 const context = github.context;
 
 // most @actions toolkit packages have async methods
 async function run() {
-  const secret = core.getInput('secret');
+  // const secret = core.getInput('secret');
   const lhciAppURL = core.getInput('lhci-server');
   
-  if (!secret) {
-    core.setFailed('secret not defined');
-    core.warning('');
-  }
+  // if (!secret) {
+  //   core.setFailed('secret not defined');
+  //   core.warning('');
+  // }
   if(!lhciAppURL){
     core.setFailed('Lighthouse Server URL not provided');
   }
@@ -25,14 +24,13 @@ async function run() {
     core.info(`Waiting ${ms} milliseconds ...`);
 
     core.debug((new Date()).toTimeString()); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
-    await wait(parseInt(ms));
-    core.info((new Date()).toTimeString());
+    // await wait(parseInt(ms));
     
     // get project details
     // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com';
 
     const projectURL = `${lhciAppURL}/v1/projects`;
-    let projectID = await getProjectID(projectURL);
+    let projectID = await getProjectID(projectURL, core);
     
     // get all urls where lhci have to be tested
     // const listURL = `${lhciAppURL}/v1/projects/${projectID}/urls`
@@ -63,9 +61,10 @@ async function run() {
 
     console.log('collectLightHouseData', collectLightHouseData)
 
-    // wip
-    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github, secret)
 
+    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github)
+    core.info((new Date()).toTimeString());
+    core.info(prComment);
     // core.setOutput('time', new Date().toTimeString());
   } catch (error) {
     core.setFailed(error.message);
