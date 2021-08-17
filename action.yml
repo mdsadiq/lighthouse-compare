@@ -1,13 +1,16 @@
-name: 'Wait'
-description: 'Wait a designated number of milliseconds'
+name: 'lighthouse-compare'
+description: 'Compare Lighthouse results of base with PR and comment on PR'
 inputs:
-  milliseconds:  # id of input
-    description: 'number of milliseconds to wait'
+  lhciServerURL:  # id of input
+    description: 'url where lhci server is hosted'
     required: true
-    default: '1000'
-outputs:
-  time: # output will be available to future steps
-    description: 'The message to output'
+  githubToken: # github token to post comment
+    description: 'github token that gives permission to comment on a PR'
+    required: true
+  baseBranch: # github token to post comment
+    description: 'base branch in your project against which new change should be compared'
+    required: false
+    default: 'master'
 runs:
   using: 'node12'
   main: 'dist/index.js'
