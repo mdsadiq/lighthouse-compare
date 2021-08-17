@@ -7,7 +7,7 @@ const context = github.context;
 // most @actions toolkit packages have async methods
 async function run() {
   // const secret = core.getInput('secret');
-  const lhciAppURL = core.getInput('lhci-server');
+  const lhciAppURL = core.getInput('lhciServerURL');
   
   // if (!secret) {
   //   core.setFailed('secret not defined');
