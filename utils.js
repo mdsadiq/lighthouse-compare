@@ -7,7 +7,7 @@ const axios = require('axios');
  * @return {string} project id
  */
 const getProjectID = async function(url, core) {
-  await axios.get(url).then(function (response) {
+  return await axios.get(url).then(function (response) {
     console.log('response', response.data);
     return response.data[0].id
   }).catch(function (error) {
