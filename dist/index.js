@@ -57,6 +57,10 @@ async function run() {
     console.log('baseBranchInfo obtained', baseBranchInfo)
     
     // get id of commit to compare
+    core.info('github context', github.context.payload);
+    console.log('github context', github.context);
+    console.log('github context', context, context.payload, context.payload.pull_request);
+    console.log('github context pr', context.payload.pull_request.number);
     const currentCommitHash = context.number;    
     const PRBranchURL = `${lhciAppURL}/v1/projects/${projectID}/builds?limit=30`;
     console.log('PRBranchURL', PRBranchURL, currentCommitHash)
