@@ -41,13 +41,12 @@ async function run() {
     // find base build id
     const masterBranchName = 'master'; // main in new repos
     const baseBranchBuildURL = `${lhciAppURL}/v1/projects/${projectID}/builds?branch=${masterBranchName}&limit=20`;
-    console.log('baseBranchBuildURL', baseBranchBuildURL)
+
     /*
     *   get branch information about base branch (ideally master or main)
     *   returns {Object}
     */
     const baseBranchInfo = await getBaseBranchInfo(baseBranchBuildURL);
-    console.log('baseBranchInfo obtained', baseBranchInfo)
     
     // get id of commit to compare
     // console.log('github context', typeof github.context.payload);
@@ -62,18 +61,18 @@ async function run() {
     const PRBranchInfo = await getPRBranchInfo(PRBranchURL, currentCommitHash);
     console.log('PRBranchInfo obtained', PRBranchInfo)
     // get report for each branch
-    const lhciDataURL =`${projectURL}/${projectID}/builds/$$buildId$$/runs?representative=true}`
+    const lhciDataURL =`${projectURL}/${projectID}/builds/$$buildId$$/runs?representative=true`
     
     console.log('lhciDataURL', lhciDataURL);
     // get lighthouse reports for baseBranch and PRBranch
     const collectLightHouseData = await getReportData(lhciDataURL, baseBranchInfo, PRBranchInfo, collectURLList);
-
+    core.startGroup('collectLightHouseData');
     console.log('collectLightHouseData', collectLightHouseData)
-
+    core.endGroup();
 
     const prComment = await postResultsToPullRequest(core, collectLightHouseData, github)
     core.info((new Date()).toTimeString());
-    core.info(prComment);
+    console.log(prComment);
     // core.setOutput('time', new Date().toTimeString());
   } catch (error) {
     core.setFailed(error.message);

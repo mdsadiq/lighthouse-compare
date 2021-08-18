@@ -48,13 +48,12 @@ async function run() {
     // find base build id
     const masterBranchName = 'master'; // main in new repos
     const baseBranchBuildURL = `${lhciAppURL}/v1/projects/${projectID}/builds?branch=${masterBranchName}&limit=20`;
-    console.log('baseBranchBuildURL', baseBranchBuildURL)
+
     /*
     *   get branch information about base branch (ideally master or main)
     *   returns {Object}
     */
     const baseBranchInfo = await getBaseBranchInfo(baseBranchBuildURL);
-    console.log('baseBranchInfo obtained', baseBranchInfo)
     
     // get id of commit to compare
     // console.log('github context', typeof github.context.payload);
@@ -69,18 +68,18 @@ async function run() {
     const PRBranchInfo = await getPRBranchInfo(PRBranchURL, currentCommitHash);
     console.log('PRBranchInfo obtained', PRBranchInfo)
     // get report for each branch
-    const lhciDataURL =`${projectURL}/${projectID}/builds/$$buildId$$/runs?representative=true}`
+    const lhciDataURL =`${projectURL}/${projectID}/builds/$$buildId$$/runs?representative=true`
     
     console.log('lhciDataURL', lhciDataURL);
     // get lighthouse reports for baseBranch and PRBranch
     const collectLightHouseData = await getReportData(lhciDataURL, baseBranchInfo, PRBranchInfo, collectURLList);
-
+    core.startGroup('collectLightHouseData');
     console.log('collectLightHouseData', collectLightHouseData)
-
+    core.endGroup();
 
     const prComment = await postResultsToPullRequest(core, collectLightHouseData, github)
     core.info((new Date()).toTimeString());
-    core.info(prComment);
+    console.log(prComment);
     // core.setOutput('time', new Date().toTimeString());
   } catch (error) {
     core.setFailed(error.message);
@@ -9998,7 +9997,6 @@ const getURLsToTest = async function(url){
  */
 const getBaseBranchInfo = async function getBaseBranchInfo(url){
   return await axios.get(url).then(function (response) {
-    console.log('getBaseBranchInfo', response.data);
     if(response.data.length > 0) return response.data[0];
     throw new Error('No build available from base branch');
   }).catch(function (error) {
@@ -10016,14 +10014,15 @@ const getBaseBranchInfo = async function getBaseBranchInfo(url){
  */
 const getPRBranchInfo = async function getPRBranchInfo(url, commitHash) {
   return await axios.get(url).then(function (response) {
-    console.log('getPRBranchInfo', response.data);
-    const transformed = response.data.map(d => ({ 
-      id: d.id,
-      commitId: d.commitMessage.split(' ')[1]
-    }));
-    const selectedBuild = transformed.find(build => build.commitId === commitHash)
+    const selectedBuild = response.data.find(build => { 
+      const splitMessage = build.commitMessage.split(' ')
+      if(splitMessage[1] === commitHash){
+        return true
+      }
+      return false
+    });
     console.log('selectedBuild', selectedBuild)
-    return selectedBuild ? selectedBuild.id : null;
+    return selectedBuild
   }).catch(function (error) {
     // handle error
     console.log(error, 'error fetching PR branch info');
@@ -10042,6 +10041,7 @@ const getPRBranchInfo = async function getPRBranchInfo(url, commitHash) {
 const getReportData = async function(projectURL, baseBranchInfo, PRBranchInfo, collectURLList) {
   const baseURL = projectURL.replace('$$buildId$$', baseBranchInfo.id);
   const prURL = projectURL.replace('$$buildId$$', PRBranchInfo.id);
+  console.log(baseURL, prURL)
   const baseAxios = axios.get(baseURL);
   const PRAxios = axios.get(prURL);
   return await axios.all([ baseAxios, PRAxios ]).then(axios.spread((...responses) => {
