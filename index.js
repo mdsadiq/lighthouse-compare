@@ -50,9 +50,7 @@ async function run() {
     console.log('baseBranchInfo obtained', baseBranchInfo)
     
     // get id of commit to compare
-    console.log('github context', typeof github.context.payload);
-    console.log('github context', typeof github.context.payload.after);
-    console.log('github context', github.context.payload.after);
+    // console.log('github context', typeof github.context.payload);
     console.log('github context', context.payload.after);
     // console.log('github context pr', context.payload.pull_request.number);
     const currentCommitHash = github.context.payload.after;    

@@ -57,9 +57,7 @@ async function run() {
     console.log('baseBranchInfo obtained', baseBranchInfo)
     
     // get id of commit to compare
-    console.log('github context', typeof github.context.payload);
-    console.log('github context', typeof github.context.payload.after);
-    console.log('github context', github.context.payload.after);
+    // console.log('github context', typeof github.context.payload);
     console.log('github context', context.payload.after);
     // console.log('github context pr', context.payload.pull_request.number);
     const currentCommitHash = github.context.payload.after;    
@@ -10019,8 +10017,13 @@ const getBaseBranchInfo = async function getBaseBranchInfo(url){
 const getPRBranchInfo = async function getPRBranchInfo(url, commitHash) {
   return await axios.get(url).then(function (response) {
     console.log('getPRBranchInfo', response.data);
-    const selectedBuild = response.data.find(build => build.hash === commitHash)
-    return (selectedBuild && selectedBuild.length > 0) ? selectedBuild[0] : null;
+    const transformed = response.data.map(d => ({ 
+      id: d.id,
+      commitId: d.commitMessage.split(' ')[1]
+    }));
+    const selectedBuild = transformed.find(build => build.commitId === commitHash)
+    console.log('selectedBuild', selectedBuild)
+    return selectedBuild ? selectedBuild.id : null;
   }).catch(function (error) {
     // handle error
     console.log(error, 'error fetching PR branch info');
