@@ -154,7 +154,7 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
  * @param {string} secret - github token that has permission to add comment.
  * @return {Object} 
  */
-const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, secret) {
+const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github) {
   const string = parseLighthouseResultsToString(lhr);
   core.startGroup('github payload ');
   console.log('github payload', github.context);

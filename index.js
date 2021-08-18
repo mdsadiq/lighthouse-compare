@@ -9,6 +9,9 @@ async function run() {
   // const secret = core.getInput('secret');
   const lhciAppURL = core.getInput('lhciServerURL');
   // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
+  if(github.token){
+    console.log('token is present');
+  }
   // if (!secret) {
   //   core.setFailed('secret not defined');
   //   core.warning('');
