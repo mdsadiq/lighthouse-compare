@@ -166,7 +166,7 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
   ) { 
     const comment = await axios(github.context.payload.pull_request.comments_url, {
       method: 'post',
-      body: string,
+      data: JSON.stringify({ body: string}),
       headers: {
         'content-type': 'application/json',
         authorization: `Bearer ${githubToken}`,
