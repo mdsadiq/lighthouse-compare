@@ -10045,10 +10045,12 @@ const getReportData = async function(projectURL, baseBranchInfo, PRBranchInfo, c
   const baseAxios = axios.get(baseURL);
   const PRAxios = axios.get(prURL);
   return await axios.all([ baseAxios, PRAxios ]).then(axios.spread((...responses) => {
+    console.log('getReportData', Object.keys(responses))
     const responseOne = responses[0]
     const responseTwo = responses[1]
-    const baseLHRData = JSON.parse(responseOne.data.lhr);
-    const prLHRData = JSON.parse(responseTwo.data.lhr);
+    console.log('getReportData',Object.keys(responseOne))
+    const baseLHRData = JSON.parse(responseOne.data[0].lhr);
+    const prLHRData = JSON.parse(responseTwo.data[1].lhr);
     
     return [ baseLHRData, prLHRData ];
 
