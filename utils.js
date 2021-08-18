@@ -154,27 +154,52 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
  * @param {string} secret - github token that has permission to add comment.
  * @return {Object} 
  */
-const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, githubToken) {
+const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, octokit) {
   const string = parseLighthouseResultsToString(lhr);
   core.startGroup('github payload ');
   console.log('github payload', github.context);
+  console.log('github string', string);
   core.endGroup();
   if (
     github.context.payload.pull_request &&
     github.context.payload.pull_request.comments_url
-  ) {
-    const postComment = await axios(github.context.payload.pull_request.comments_url, {
-      method: 'post',
-      body: JSON.stringify({
-        body: string,
-      }),
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${githubToken}`,
-      },
+  ) { 
+    // const postComment = await axios(github.context.payload.pull_request.comments_url, {
+    //   method: 'post',
+    //   body: JSON.stringify({
+    //     body: string,
+    //   }),
+    //   headers: {
+    //     'content-type': 'application/json',
+    //     authorization: `Bearer ${githubToken}`,
+    //   },
+    // }).then(function (response){
+    //   console.log(response)
+    //   console.log(response.data)
+    // }).catch(function (error){
+    //   console.log('error', error)
+    // });
+
+    if(github.context.payload.eventName === 'pull_request'){
+      console.log('event is: pull_request');
+    }
+    const issue_number = github.context.payload.number;
+    const fullName =github.context.payload.repository.full_name
+    const [owner, repo] = fullName.split('/') 
+
+    const { data: comment } = await octokit.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number,
+      body: string,
     });
-    console.log('postComment', postComment)
-    return postComment
+    core.info(
+      `Created comment id '${comment.id}' on issue '${issue_number}'.`
+    );
+    core.setOutput("comment-id", comment.id);
+    console.log('postComment', comment)
+    return comment
+    // return postComment
   } else {
     core.info('Missing pull request info or comments_url in contexts or secret');
     core.info(github.context.payload);
