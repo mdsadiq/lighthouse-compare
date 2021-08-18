@@ -67,7 +67,7 @@ async function run() {
     // get lighthouse reports for baseBranch and PRBranch
     const collectLightHouseData = await getReportData(lhciDataURL, baseBranchInfo, PRBranchInfo, collectURLList);
     core.startGroup('collectLightHouseData');
-    console.log('collectLightHouseData', collectLightHouseData)
+    console.log('collectLightHouseData', collectLightHouseData, collectLightHouseData.length)
     core.endGroup();
 
     const prComment = await postResultsToPullRequest(core, collectLightHouseData, github)

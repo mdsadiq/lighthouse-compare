@@ -90,9 +90,9 @@ const getReportData = async function(projectURL, baseBranchInfo, PRBranchInfo, c
     console.log('getReportData', Object.keys(responses))
     const responseOne = responses[0]
     const responseTwo = responses[1]
-    console.log('getReportData',Object.keys(responseOne))
+    console.log('getReportData',Object.keys(responseOne.data))
     const baseLHRData = JSON.parse(responseOne.data[0].lhr);
-    const prLHRData = JSON.parse(responseTwo.data[1].lhr);
+    const prLHRData = JSON.parse(responseTwo.data[0].lhr);
     
     return [ baseLHRData, prLHRData ];
 
@@ -121,7 +121,8 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
   let timings = '';
 
   Object.values(lhr[0].categories).forEach(cat => {
-    rows += `| ${cat.title} | ${cat.score * 100} | ${lhr[1].categories[cat].score * 100} | \n`;
+    const categoryName = cat.id
+    rows += `| ${cat.title} | ${cat.score * 100} | ${lhr[1].categories[categoryName].score * 100} | \n`;
   });
 
   [
