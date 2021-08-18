@@ -13,10 +13,10 @@ const context = github.context;
 
 // most @actions toolkit packages have async methods
 async function run() {
-  // const secret = core.getInput('secret');
+  const githubToken = core.getInput('githubToken');
   const lhciAppURL = core.getInput('lhciServerURL');
   // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
-  if(github.token){
+  if(githubToken){
     console.log('token is present');
   }
   // if (!secret) {
