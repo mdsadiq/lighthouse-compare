@@ -14,8 +14,8 @@ const context = github.context;
 // most @actions toolkit packages have async methods
 async function run() {
   // const secret = core.getInput('secret');
-  // const lhciAppURL = core.getInput('lhciServerURL');
-  const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
+  const lhciAppURL = core.getInput('lhciServerURL');
+  // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
   // if (!secret) {
   //   core.setFailed('secret not defined');
   //   core.warning('');
@@ -9964,8 +9964,6 @@ const axios = __nccwpck_require__(6545);
  */
 const getProjectID = async function(url, core) {
   return await axios.get(url).then(function (response) {
-    console.log('response', typeof response.data)
-    console.log('response', response.data[0]);
     console.log('response', response.data[0].id);
     console.log('response', response.data[0].baseBranch);
     return response.data[0].id

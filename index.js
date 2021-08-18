@@ -7,8 +7,8 @@ const context = github.context;
 // most @actions toolkit packages have async methods
 async function run() {
   // const secret = core.getInput('secret');
-  // const lhciAppURL = core.getInput('lhciServerURL');
-  const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
+  const lhciAppURL = core.getInput('lhciServerURL');
+  // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
   // if (!secret) {
   //   core.setFailed('secret not defined');
   //   core.warning('');
