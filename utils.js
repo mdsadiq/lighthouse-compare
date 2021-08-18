@@ -8,7 +8,10 @@ const axios = require('axios');
  */
 const getProjectID = async function(url, core) {
   return await axios.get(url).then(function (response) {
-    console.log('response', response.data);
+    console.log('response', typeof response.data)
+    console.log('response', response.data[0]);
+    console.log('response', response.data[0].id);
+    console.log('response', response.data[0].baseBranch);
     return response.data[0].id
   }).catch(function (error) {
     // handle error
@@ -60,7 +63,7 @@ const getPRBranchInfo = async function getPRBranchInfo(url, commitHash) {
   return await axios.get(url).then(function (response) {
     console.log('getPRBranchInfo', response.data);
     const selectedBuild = response.data.find(build => build.hash === commitHash)
-    return selectedBuild.length > 0 ? selectedBuild[0] : null;
+    return (selectedBuild && selectedBuild.length > 0) ? selectedBuild[0] : null;
   }).catch(function (error) {
     // handle error
     console.log(error, 'error fetching PR branch info');

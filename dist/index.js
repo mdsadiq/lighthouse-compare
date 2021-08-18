@@ -14,8 +14,8 @@ const context = github.context;
 // most @actions toolkit packages have async methods
 async function run() {
   // const secret = core.getInput('secret');
-  const lhciAppURL = core.getInput('lhciServerURL');
-  
+  // const lhciAppURL = core.getInput('lhciServerURL');
+  const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
   // if (!secret) {
   //   core.setFailed('secret not defined');
   //   core.warning('');
@@ -57,10 +57,12 @@ async function run() {
     console.log('baseBranchInfo obtained', baseBranchInfo)
     
     // get id of commit to compare
-    const currentCommitHash = context.number;
-    console.log('PRBranchURL', PRBranchURL, currentCommitHash)
-    
+    const currentCommitHash = context.number;    
     const PRBranchURL = `${lhciAppURL}/v1/projects/${projectID}/builds?limit=30`;
+    console.log('PRBranchURL', PRBranchURL, currentCommitHash)
+    if(!currentCommitHash){
+      console.log('unable to get current commit hash');
+    }
     const PRBranchInfo = await getPRBranchInfo(PRBranchURL, currentCommitHash);
     console.log('PRBranchInfo obtained', PRBranchInfo)
     // get report for each branch
@@ -9961,8 +9963,11 @@ const axios = __nccwpck_require__(6545);
  * @return {string} project id
  */
 const getProjectID = async function(url, core) {
-  await axios.get(url).then(function (response) {
-    console.log('response', response.data);
+  return await axios.get(url).then(function (response) {
+    console.log('response', typeof response.data)
+    console.log('response', response.data[0]);
+    console.log('response', response.data[0].id);
+    console.log('response', response.data[0].baseBranch);
     return response.data[0].id
   }).catch(function (error) {
     // handle error
@@ -10014,7 +10019,7 @@ const getPRBranchInfo = async function getPRBranchInfo(url, commitHash) {
   return await axios.get(url).then(function (response) {
     console.log('getPRBranchInfo', response.data);
     const selectedBuild = response.data.find(build => build.hash === commitHash)
-    return selectedBuild.length > 0 ? selectedBuild[0] : null;
+    return (selectedBuild && selectedBuild.length > 0) ? selectedBuild[0] : null;
   }).catch(function (error) {
     // handle error
     console.log(error, 'error fetching PR branch info');

@@ -7,8 +7,8 @@ const context = github.context;
 // most @actions toolkit packages have async methods
 async function run() {
   // const secret = core.getInput('secret');
-  const lhciAppURL = core.getInput('lhciServerURL');
-  
+  // const lhciAppURL = core.getInput('lhciServerURL');
+  const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
   // if (!secret) {
   //   core.setFailed('secret not defined');
   //   core.warning('');
@@ -50,10 +50,12 @@ async function run() {
     console.log('baseBranchInfo obtained', baseBranchInfo)
     
     // get id of commit to compare
-    const currentCommitHash = context.number;
-    console.log('PRBranchURL', PRBranchURL, currentCommitHash)
-    
+    const currentCommitHash = context.number;    
     const PRBranchURL = `${lhciAppURL}/v1/projects/${projectID}/builds?limit=30`;
+    console.log('PRBranchURL', PRBranchURL, currentCommitHash)
+    if(!currentCommitHash){
+      console.log('unable to get current commit hash');
+    }
     const PRBranchInfo = await getPRBranchInfo(PRBranchURL, currentCommitHash);
     console.log('PRBranchInfo obtained', PRBranchInfo)
     // get report for each branch
