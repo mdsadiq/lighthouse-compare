@@ -80,7 +80,7 @@ async function run() {
     console.log('collectLightHouseData', collectLightHouseData, collectLightHouseData.length)
     core.endGroup();
 
-    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github)
+    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github, githubToken)
     core.info((new Date()).toTimeString());
     console.log(prComment);
     // core.setOutput('time', new Date().toTimeString());
@@ -10115,7 +10115,7 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
  * @param {string} secret - github token that has permission to add comment.
  * @return {Object} 
  */
-const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github) {
+const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, githubToken) {
   const string = parseLighthouseResultsToString(lhr);
   core.startGroup('github payload ');
   console.log('github payload', github.context);
@@ -10131,7 +10131,7 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
       }),
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${github.token}`,
+        authorization: `Bearer ${githubToken}`,
       },
     });
     console.log('postComment', postComment)

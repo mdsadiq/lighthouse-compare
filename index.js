@@ -73,7 +73,7 @@ async function run() {
     console.log('collectLightHouseData', collectLightHouseData, collectLightHouseData.length)
     core.endGroup();
 
-    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github)
+    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github, githubToken)
     core.info((new Date()).toTimeString());
     console.log(prComment);
     // core.setOutput('time', new Date().toTimeString());
