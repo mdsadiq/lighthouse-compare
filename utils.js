@@ -116,7 +116,7 @@ function _generateLogString(
   | ------------- | ------------- | ------------- |
   ${timings}`
 }
-const parseLighthouseResultsToString = function parseLighthouseResultsToString(core, lhr) {
+const parseLighthouseResultsToString = function parseLighthouseResultsToString(lhr) {
   let rows = '';
   let timings = '';
 
