@@ -156,11 +156,12 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
  */
 const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, secret) {
   const string = parseLighthouseResultsToString(lhr);
-  core.info('github payload', github.context.payload);
+  core.startGroup('github payload ');
+  console.log('github payload', github.context);
+  core.endGroup();
   if (
     github.context.payload.pull_request &&
-    github.context.payload.pull_request.comments_url &&
-    secret
+    github.context.payload.pull_request.comments_url
   ) {
     const postComment = await axios(github.context.payload.pull_request.comments_url, {
       method: 'post',
@@ -172,6 +173,7 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
         authorization: `Bearer ${github.token}`,
       },
     });
+    console.log('postComment', postComment)
     return postComment
   } else {
     core.info('Missing pull request info or comments_url in contexts or secret');
