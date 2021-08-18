@@ -16,6 +16,9 @@ async function run() {
   // const secret = core.getInput('secret');
   const lhciAppURL = core.getInput('lhciServerURL');
   // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
+  if(github.token){
+    console.log('token is present');
+  }
   // if (!secret) {
   //   core.setFailed('secret not defined');
   //   core.warning('');
@@ -10112,7 +10115,7 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
  * @param {string} secret - github token that has permission to add comment.
  * @return {Object} 
  */
-const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, secret) {
+const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github) {
   const string = parseLighthouseResultsToString(lhr);
   core.startGroup('github payload ');
   console.log('github payload', github.context);
