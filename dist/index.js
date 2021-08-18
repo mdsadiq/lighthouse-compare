@@ -19,6 +19,8 @@ async function run() {
   if(githubToken){
     console.log('token is present');
   }
+  // const octokit = github.getOctokit(githubToken);
+
   // if (!secret) {
   //   core.setFailed('secret not defined');
   //   core.warning('');
@@ -10119,12 +10121,13 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
   const string = parseLighthouseResultsToString(lhr);
   core.startGroup('github payload ');
   console.log('github payload', github.context);
+  console.log('github string', string);
   core.endGroup();
   if (
     github.context.payload.pull_request &&
     github.context.payload.pull_request.comments_url
-  ) {
-    const postComment = await axios(github.context.payload.pull_request.comments_url, {
+  ) { 
+    const comment = await axios(github.context.payload.pull_request.comments_url, {
       method: 'post',
       body: JSON.stringify({
         body: string,
@@ -10133,9 +10136,33 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
         'content-type': 'application/json',
         authorization: `Bearer ${githubToken}`,
       },
+    }).then(function (response){
+      console.log(response)
+      console.log(response.data)
+      return response.data
+    }).catch(function (error){
+      console.log('error', error)
     });
-    console.log('postComment', postComment)
-    return postComment
+
+    // if(github.context.payload.eventName === 'pull_request'){
+    //   console.log('event is: pull_request');
+    // }
+    // const issue_number = github.context.payload.number;
+    // const fullName =github.context.payload.repository.full_name
+    // const [owner, repo] = fullName.split('/') 
+
+    // const { data: comment } = await octokit.rest.issues.createComment({
+    //   owner,
+    //   repo,
+    //   issue_number,
+    //   body: string,
+    // });
+    // core.info(
+    //   `Created comment id '${comment.id}' on issue '${issue_number}'.`
+    // );
+    // core.setOutput("comment-id", comment.id);
+    // console.log('postComment', comment)
+    return comment
   } else {
     core.info('Missing pull request info or comments_url in contexts or secret');
     core.info(github.context.payload);

@@ -12,7 +12,7 @@ async function run() {
   if(githubToken){
     console.log('token is present');
   }
-  const octokit = github.getOctokit(githubToken);
+  // const octokit = github.getOctokit(githubToken);
 
   // if (!secret) {
   //   core.setFailed('secret not defined');
@@ -75,7 +75,7 @@ async function run() {
     console.log('collectLightHouseData', collectLightHouseData, collectLightHouseData.length)
     core.endGroup();
 
-    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github, octokit)
+    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github, githubToken)
     core.info((new Date()).toTimeString());
     console.log(prComment);
     // core.setOutput('time', new Date().toTimeString());
