@@ -32,3 +32,7 @@ How to consume
       lhci-server: https://example.com
       secret: ${{ secret.LH_COMPARE_GITHUB_APP_TOKEN }}
 ```
+
+## TO-DO
+
+  - handle case when base branch with 1URL compares to 2 URLs in another branch

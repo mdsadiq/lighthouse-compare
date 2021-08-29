@@ -39,9 +39,9 @@ async function run() {
     console.log('Project ID identified : ', projectID)
 
     // get all urls where lhci have to be tested
-    // const listURL = `${lhciAppURL}/v1/projects/${projectID}/urls`
-    // const collectURLList = await getURLsToTest(listURL);
-    const collectURLList = [ { "url": "http://localhost:PORT/" } ];
+    const listURL = `${lhciAppURL}/v1/projects/${projectID}/urls`
+    const collectURLList = await getURLsToTest(listURL);
+    // const collectURLList = [ { "url": "http://localhost:PORT/" } ];
 
     // find base build id
     const masterBranchName = 'master'; // main in new repos
@@ -55,7 +55,7 @@ async function run() {
     
     // get id of commit to compare
     // console.log('github context', typeof github.context.payload);
-    console.log('github context', context.payload.after);
+    console.log('current commit ', context.payload.after);
     // console.log('github context pr', context.payload.pull_request.number);
     const currentCommitHash = github.context.payload.after;    
     const PRBranchURL = `${lhciAppURL}/v1/projects/${projectID}/builds?limit=30`;

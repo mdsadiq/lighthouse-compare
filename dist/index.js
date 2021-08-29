@@ -46,9 +46,9 @@ async function run() {
     console.log('Project ID identified : ', projectID)
 
     // get all urls where lhci have to be tested
-    // const listURL = `${lhciAppURL}/v1/projects/${projectID}/urls`
-    // const collectURLList = await getURLsToTest(listURL);
-    const collectURLList = [ { "url": "http://localhost:PORT/" } ];
+    const listURL = `${lhciAppURL}/v1/projects/${projectID}/urls`
+    const collectURLList = await getURLsToTest(listURL);
+    // const collectURLList = [ { "url": "http://localhost:PORT/" } ];
 
     // find base build id
     const masterBranchName = 'master'; // main in new repos
@@ -62,7 +62,7 @@ async function run() {
     
     // get id of commit to compare
     // console.log('github context', typeof github.context.payload);
-    console.log('github context', context.payload.after);
+    console.log('current commit ', context.payload.after);
     // console.log('github context pr', context.payload.pull_request.number);
     const currentCommitHash = github.context.payload.after;    
     const PRBranchURL = `${lhciAppURL}/v1/projects/${projectID}/builds?limit=30`;
@@ -9962,6 +9962,7 @@ function wrappy (fn, cb) {
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const axios = __nccwpck_require__(6545);
+// const flatten = require('lodash.flatten');
 
 /**
  * Gets Project Id from the lighthouse server
@@ -9974,7 +9975,7 @@ const getProjectID = async function(url, core) {
     return response.data[0].id
   }).catch(function (error) {
     // handle error
-    core.info('github payload error', error);
+    core.log('error fetching project id', error);
     console.log(error, 'error fetching project id');
   })
 };
@@ -10039,24 +10040,38 @@ const getPRBranchInfo = async function getPRBranchInfo(url, commitHash) {
  * @function
  * @param {string} projectURL - URL to send request.
  * @param {Object} baseBranchInfo - information about the base branch.
- * @param {Object} PRBranchInfo - information about the pull request.
+ * @param {Object} prBranchInfo - information about the pull request.
  * @param {Array} collectURLList - List of urls.
  * @return {Array} - Array of lh reports 
  */
-const getReportData = async function(projectURL, baseBranchInfo, PRBranchInfo, collectURLList) {
+const getReportData = async function(projectURL, baseBranchInfo, prBranchInfo, collectURLList) {
   const baseURL = projectURL.replace('$$buildId$$', baseBranchInfo.id);
-  const prURL = projectURL.replace('$$buildId$$', PRBranchInfo.id);
+  const prURL = projectURL.replace('$$buildId$$', prBranchInfo.id);
   console.log(baseURL, prURL)
   const baseAxios = axios.get(baseURL);
   const PRAxios = axios.get(prURL);
   return await axios.all([ baseAxios, PRAxios ]).then(axios.spread((...responses) => {
     console.log('getReportData', Object.keys(responses))
-    const responseOne = responses[0]
-    const responseTwo = responses[1]
-    console.log('getReportData',Object.keys(responseOne.data))
-    const baseLHRData = JSON.parse(responseOne.data[0].lhr);
-    const prLHRData = JSON.parse(responseTwo.data[0].lhr);
-    
+    const baseResponse = responses[0]
+    const prResponse = responses[1]
+    console.log('getReportData',Object.keys(baseResponse.data))
+    const baseLHRData = collectURLList.map(url => {
+      const selectedData = baseResponse.data.find(base => base.url === url);
+      return {
+        url: selectedData.url,
+        lhr: JSON.parse(selectedData.lhr),
+        branch: baseBranchInfo.branch
+      }
+    })
+    const prLHRData = collectURLList.map(url => {
+      const selectedData = prResponse.data.find(base => base.url === url);
+      return {
+        url: selectedData.url,
+        lhr: JSON.parse(selectedData.lhr),
+        branch: prBranchInfo.branch
+      }
+    })
+
     return [ baseLHRData, prLHRData ];
 
   })).catch(function (error) {
@@ -10065,6 +10080,13 @@ const getReportData = async function(projectURL, baseBranchInfo, PRBranchInfo, c
   })
 
 }
+
+/**
+ * Takes lhr data of two branches and prepares a table
+ * @function
+ * @param {Array} lhr - github actions core 
+ * @return {string} 
+ */
 
 function _generateLogString(
   rows,
@@ -10079,16 +10101,33 @@ function _generateLogString(
   | ------------- | ------------- | ------------- |
   ${timings}`
 }
+
+/**
+ * Takes lhr data of two branches and prepares a table
+ * @function
+ * @param {Array} lhr - github actions core 
+ * @return {string} 
+ */
 const parseLighthouseResultsToString = function parseLighthouseResultsToString(lhr) {
   let rows = '';
   let timings = '';
+  let urls = lhr[0].map(l => l.url)
 
-  Object.values(lhr[0].categories).forEach(cat => {
+  Object.values(getObject(lhr).categories).forEach(cat => {
     const categoryName = cat.id
-    rows += `| ${cat.title} | ${cat.score * 100} | ${lhr[1].categories[categoryName].score * 100} | \n`;
+    // | title | base[url1] | pr[url1] |base[url2]| pr[url2] |\n
+    urls.forEach((url, i) => {
+      let baseItem = lhr[0].find(lhrInfo => lhrInfo.url === url)
+      let prItem = lhr[1].find(lhrInfo => lhrInfo.url === url)
+      
+      if(i === 0) rows += `| ${ cat.title} |`;
+      rows += ` ${baseItem.lhr.categories[categoryName].score * 100} | ${prItem.lhr.categories[categoryName].score * 100} | `;
+      if(i === urls.length) rows += ` \n `;
+    })
+    // rows += `| ${cat.title} | ${cat.score * 100} | ${lhr[1].categories[categoryName].score * 100} | \n`;
   });
 
-  [
+  const userDefinedCategories =  [
     'first-contentful-paint',
     'interactive',
     'first-meaningful-paint',
@@ -10097,10 +10136,25 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
     'speed-index',
     'largest-contentful-paint',
     'cumulative-layout-shift',
-  ].forEach(cat => {
-    if (lhr[0].audits[cat]) {
-      timings += `| ${lhr[0].audits[cat].title} | ${lhr[0].audits[cat].displayValue} | ${lhr[1].audits[cat].displayValue} | \n`;
+  ]
+  
+  // timings += `| ${lhr[0].audits[cat].title} | ${lhr[0].audits[cat].displayValue} | ${lhr[1].audits[cat].displayValue} | \n`;
+  // | title | base[url1] | pr[url1] |base[url2]| pr[url2] |\n
+  userDefinedCategories.forEach(categoryName => {
+
+    const isAuditCategoryPresent = getObject(lhr).audits[categoryName]
+    if(isAuditCategoryPresent){
+
+      urls.forEach((url, i) => {
+        let baseItem = lhr[0].find(lhrInfo => lhrInfo.url === url)
+        let prItem = lhr[1].find(lhrInfo => lhrInfo.url === url)
+        
+        if(i === 0) timings += `| ${ isAuditCategoryPresent.title} |`;
+        rows += ` ${baseItem.lhr.audits[categoryName].displayValue} | ${prItem.lhr.categories[categoryName].displayValue} | `;
+        if(i === urls.length) timings += ` \n `;
+      })
     }
+
   });
   return _generateLogString(
     rows,
@@ -10118,10 +10172,10 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
  * @return {Object} 
  */
 const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, githubToken) {
-  const string = parseLighthouseResultsToString(lhr);
+  const mdReport = parseLighthouseResultsToString(lhr);
   core.startGroup('github payload ');
   console.log('github payload', github.context);
-  console.log('github string', string);
+  console.log('github string', mdReport);
   core.endGroup();
   if (
     github.context.payload.pull_request &&
@@ -10129,7 +10183,7 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
   ) { 
     const comment = await axios(github.context.payload.pull_request.comments_url, {
       method: 'post',
-      data: JSON.stringify({ body: string}),
+      data: JSON.stringify({ body: mdReport}),
       headers: {
         'content-type': 'application/json',
         authorization: `Bearer ${githubToken}`,
@@ -10142,24 +10196,6 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
       console.log('error', error)
     });
 
-    // if(github.context.payload.eventName === 'pull_request'){
-    //   console.log('event is: pull_request');
-    // }
-    // const issue_number = github.context.payload.number;
-    // const fullName =github.context.payload.repository.full_name
-    // const [owner, repo] = fullName.split('/') 
-
-    // const { data: comment } = await octokit.rest.issues.createComment({
-    //   owner,
-    //   repo,
-    //   issue_number,
-    //   body: string,
-    // });
-    // core.info(
-    //   `Created comment id '${comment.id}' on issue '${issue_number}'.`
-    // );
-    // core.setOutput("comment-id", comment.id);
-    // console.log('postComment', comment)
     return comment
   } else {
     core.info('Missing pull request info or comments_url in contexts or secret');
@@ -10167,6 +10203,13 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
   }
 }
 
+const getObject = (lhr) => {
+  if(Array.isArray(lhr[0])){
+    return lhr[0][0]
+  }else{
+    return lhr[0]
+  }
+}
 module.exports = {
   getProjectID,
   getURLsToTest,
