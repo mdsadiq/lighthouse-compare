@@ -99,10 +99,13 @@ const getReportData = async function(projectURL, baseBranchInfo, prBranchInfo, c
 
     const baseResponse = responses[0]
     const prResponse = responses[1]
-    console.log(baseResponse)
-    const baseLHRData = collectURLList.map(url => {
+    console.log(baseResponse.data.map(d => d.url));
+    const baseLHRData = collectURLList.map(item => {
       
-      const selectedData = baseResponse.data.find(base => base.url === url);
+      const selectedData = baseResponse.data.find(base => { 
+        console.log(base.url, item)
+        base.url === item.url
+      });
       return {
         url: selectedData.url,
         lhr: JSON.parse(selectedData.lhr),
