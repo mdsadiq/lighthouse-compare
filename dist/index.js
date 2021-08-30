@@ -10155,7 +10155,7 @@ const getReportData = async function(projectURL, baseBranchInfo, prBranchInfo, c
       
       const selectedData = baseResponse.data.find(base => { 
         console.log(base.url, item)
-        base.url === item.url
+        return base.url === item.url
       });
       console.log('selectedData',selectedData)
       return {
