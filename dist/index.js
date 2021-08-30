@@ -10157,6 +10157,7 @@ const getReportData = async function(projectURL, baseBranchInfo, prBranchInfo, c
         console.log(base.url, item)
         base.url === item.url
       });
+      console.log('selectedData',selectedData)
       return {
         url: selectedData.url,
         lhr: JSON.parse(selectedData.lhr),
