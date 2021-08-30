@@ -1,5 +1,13 @@
 const axios = require('axios');
-// const flatten = require('lodash.flatten');
+const idx = require('idx');
+
+const getObject = (lhr) => {
+  if(Array.isArray(lhr[0])){
+    return lhr[0][0]
+  }else{
+    return lhr[0]
+  }
+}
 
 /**
  * Gets Project Id from the lighthouse server
@@ -88,10 +96,10 @@ const getReportData = async function(projectURL, baseBranchInfo, prBranchInfo, c
   const baseAxios = axios.get(baseURL);
   const PRAxios = axios.get(prURL);
   return await axios.all([ baseAxios, PRAxios ]).then(axios.spread((...responses) => {
-    console.log('getReportData', Object.keys(responses))
+
     const baseResponse = responses[0]
     const prResponse = responses[1]
-    console.log('getReportData',Object.keys(baseResponse.data))
+
     const baseLHRData = collectURLList.map(url => {
       const selectedData = baseResponse.data.find(base => base.url === url);
       return {
@@ -125,18 +133,41 @@ const getReportData = async function(projectURL, baseBranchInfo, prBranchInfo, c
  * @return {string} 
  */
 
-function _generateLogString(
-  rows,
-  timings
-) {
-    return `
-  [Lighthouse](https://developers.google.com/web/tools/lighthouse/) report for the changes in this PR:
+function _generateLogString(rows, timings, urls) {
+  let logString = `[Lighthouse](https://developers.google.com/web/tools/lighthouse/) report for the changes in this PR: \n `;
+
+  if(urls.length <= 1) {
+  logString += `
   | Category | Base Branch (score) | PR (score) |
   | ------------- | ------------- | ------------- |
   ${rows}
   | Measure | Base Branch (timing) | PR (timing) |
   | ------------- | ------------- | ------------- |
   ${timings}`
+
+  }else{
+    let rowString = '',rowLines = '', timeString = '', timeLines = '';
+
+    urls.forEach((url, i) => {
+      if(i === 0 ){
+        rowString = `| Category |`;  rowLines = `| ------- |`;
+        timeString = ` \n | Measure |`; timeLines = `| ------- |`;
+      }
+      rowString += ` Base Branch (score) <br /> ${url} | PR (score) <br /> ${url} |`;
+      rowLines += `------- | ------- |`;
+      timeString += ` Base Branch (timing) <br /> ${url} | PR (timing) <br /> ${url} |`;
+      timeLines += `------- | ------- |`;
+      if(i === urls.length - 1){
+        rowString += ` \n `; rowLines += ` \n `;
+        timeString += ` \n `; timeLines += ` \n `;
+      }
+    })
+    
+    logString += `${rowString} ${rowLines} ${rows}  ${timeString} ${timeLines} ${timings} `
+    
+  }
+
+  return logString;
 }
 
 /**
@@ -149,8 +180,7 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
   let rows = '';
   let timings = '';
   let urls = lhr[0].map(l => l.url)
-
-  Object.values(getObject(lhr).categories).forEach(cat => {
+  Object.values(getObject(lhr).lhr.categories).forEach(cat => {
     const categoryName = cat.id
     // | title | base[url1] | pr[url1] |base[url2]| pr[url2] |\n
     urls.forEach((url, i) => {
@@ -159,9 +189,8 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
       
       if(i === 0) rows += `| ${ cat.title} |`;
       rows += ` ${baseItem.lhr.categories[categoryName].score * 100} | ${prItem.lhr.categories[categoryName].score * 100} | `;
-      if(i === urls.length) rows += ` \n `;
+      if(i === urls.length - 1) rows += ` \n `;
     })
-    // rows += `| ${cat.title} | ${cat.score * 100} | ${lhr[1].categories[categoryName].score * 100} | \n`;
   });
 
   const userDefinedCategories =  [
@@ -175,11 +204,10 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
     'cumulative-layout-shift',
   ]
   
-  // timings += `| ${lhr[0].audits[cat].title} | ${lhr[0].audits[cat].displayValue} | ${lhr[1].audits[cat].displayValue} | \n`;
   // | title | base[url1] | pr[url1] |base[url2]| pr[url2] |\n
   userDefinedCategories.forEach(categoryName => {
 
-    const isAuditCategoryPresent = getObject(lhr).audits[categoryName]
+    const isAuditCategoryPresent = getObject(lhr).lhr.audits[categoryName]
     if(isAuditCategoryPresent){
 
       urls.forEach((url, i) => {
@@ -187,8 +215,8 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
         let prItem = lhr[1].find(lhrInfo => lhrInfo.url === url)
         
         if(i === 0) timings += `| ${ isAuditCategoryPresent.title} |`;
-        rows += ` ${baseItem.lhr.audits[categoryName].displayValue} | ${prItem.lhr.categories[categoryName].displayValue} | `;
-        if(i === urls.length) timings += ` \n `;
+        timings += ` ${baseItem.lhr.audits[categoryName].displayValue} | ${prItem.lhr.audits[categoryName].displayValue} | `;
+        if(i === urls.length - 1) timings += ` \n `;
       })
     }
 
@@ -196,6 +224,7 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
   return _generateLogString(
     rows,
     timings,
+    urls
   );
 }
 
@@ -211,13 +240,10 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
 const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, githubToken) {
   const mdReport = parseLighthouseResultsToString(lhr);
   core.startGroup('github payload ');
-  console.log('github payload', github.context);
   console.log('github string', mdReport);
   core.endGroup();
-  if (
-    github.context.payload.pull_request &&
-    github.context.payload.pull_request.comments_url
-  ) { 
+  
+  if (idx(github, _ => _.context.payload.pull_request.comments_url)) { 
     const comment = await axios(github.context.payload.pull_request.comments_url, {
       method: 'post',
       data: JSON.stringify({ body: mdReport}),
@@ -226,7 +252,6 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
         authorization: `Bearer ${githubToken}`,
       },
     }).then(function (response){
-      console.log(response)
       console.log(response.data)
       return response.data
     }).catch(function (error){
@@ -236,17 +261,10 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
     return comment
   } else {
     core.info('Missing pull request info or comments_url in contexts or secret');
-    core.info(github.context.payload);
+    console.log('Missing Information')
   }
 }
 
-const getObject = (lhr) => {
-  if(Array.isArray(lhr[0])){
-    return lhr[0][0]
-  }else{
-    return lhr[0]
-  }
-}
 module.exports = {
   getProjectID,
   getURLsToTest,

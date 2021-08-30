@@ -16,8 +16,9 @@ async function run() {
   const githubToken = core.getInput('githubToken');
   const lhciAppURL = core.getInput('lhciServerURL');
   // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
-  if(githubToken){
-    console.log('token is present');
+  if(!githubToken){
+    console.log('token not passed, will not be able to create PR comment with the results');
+    core.setFailed('Token to create PR Comment not provided');
   }
   // const octokit = github.getOctokit(githubToken);
 
@@ -32,15 +33,9 @@ async function run() {
   // const myToken = core.getInput("token", { required: true });
 
   try {
-    const ms = core.getInput('milliseconds');
-    core.info(`Waiting ${ms} milliseconds ...`);
-
-    core.debug((new Date()).toTimeString()); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
-    // await wait(parseInt(ms));
+    core.info((new Date()).toTimeString()); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
     
     // get project details
-    // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com';
-
     const projectURL = `${lhciAppURL}/v1/projects`;
     let projectID = await getProjectID(projectURL, core);
     console.log('Project ID identified : ', projectID)
@@ -84,7 +79,7 @@ async function run() {
 
     const prComment = await postResultsToPullRequest(core, collectLightHouseData, github, githubToken)
     core.info((new Date()).toTimeString());
-    console.log(prComment);
+    console.log('prComment',prComment);
     // core.setOutput('time', new Date().toTimeString());
   } catch (error) {
     core.setFailed(error.message);
@@ -7598,6 +7593,101 @@ module.exports = (flag, argv) => {
 
 /***/ }),
 
+/***/ 8964:
+/***/ ((module) => {
+
+"use strict";
+/**
+ * Copyright (c) 2013-present, Facebook, Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ *  strict
+ * @format
+ */
+
+ // eslint-disable-line strict
+
+/**
+ * Traverses properties on objects and arrays. If an intermediate property is
+ * either null or undefined, it is instead returned. The purpose of this method
+ * is to simplify extracting properties from a chain of maybe-typed properties.
+ *
+ * === EXAMPLE ===
+ *
+ * Consider the following type:
+ *
+ *   const props: {
+ *     user: ?{
+ *       name: string,
+ *       friends: ?Array<User>,
+ *     }
+ *   };
+ *
+ * Getting to the friends of my first friend would resemble:
+ *
+ *   props.user &&
+ *   props.user.friends &&
+ *   props.user.friends[0] &&
+ *   props.user.friends[0].friends
+ *
+ * Instead, `idx` allows us to safely write:
+ *
+ *   idx(props, _ => _.user.friends[0].friends)
+ *
+ * The second argument must be a function that returns one or more nested member
+ * expressions. Any other expression has undefined behavior.
+ *
+ * === NOTE ===
+ *
+ * The code below exists for the purpose of illustrating expected behavior and
+ * is not meant to be executed. The `idx` function is used in conjunction with a
+ * Babel transform that replaces it with better performing code:
+ *
+ *   props.user == null ? props.user :
+ *   props.user.friends == null ? props.user.friends :
+ *   props.user.friends[0] == null ? props.user.friends[0] :
+ *   props.user.friends[0].friends
+ *
+ * All this machinery exists due to the fact that an existential operator does
+ * not currently exist in JavaScript.
+ */
+
+function idx(input, accessor) {
+  try {
+    return accessor(input);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      if (nullPattern.test(error)) {
+        return null;
+      } else if (undefinedPattern.test(error)) {
+        return undefined;
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Some actual error messages for null:
+ *
+ * TypeError: Cannot read property 'bar' of null
+ * TypeError: Cannot convert null value to object
+ * TypeError: foo is null
+ * TypeError: null has no properties
+ * TypeError: null is not an object (evaluating 'foo.bar')
+ * TypeError: null is not an object (evaluating '(" undefined ", null).bar')
+ */
+var nullPattern = /^null | null$|^[^(]* null /i;
+var undefinedPattern = /^undefined | undefined$|^[^(]* undefined /i;
+
+idx.default = idx;
+module.exports = idx;
+
+
+/***/ }),
+
 /***/ 900:
 /***/ ((module) => {
 
@@ -9962,7 +10052,15 @@ function wrappy (fn, cb) {
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const axios = __nccwpck_require__(6545);
-// const flatten = require('lodash.flatten');
+const idx = __nccwpck_require__(8964);
+
+const getObject = (lhr) => {
+  if(Array.isArray(lhr[0])){
+    return lhr[0][0]
+  }else{
+    return lhr[0]
+  }
+}
 
 /**
  * Gets Project Id from the lighthouse server
@@ -10051,10 +10149,10 @@ const getReportData = async function(projectURL, baseBranchInfo, prBranchInfo, c
   const baseAxios = axios.get(baseURL);
   const PRAxios = axios.get(prURL);
   return await axios.all([ baseAxios, PRAxios ]).then(axios.spread((...responses) => {
-    console.log('getReportData', Object.keys(responses))
+
     const baseResponse = responses[0]
     const prResponse = responses[1]
-    console.log('getReportData',Object.keys(baseResponse.data))
+
     const baseLHRData = collectURLList.map(url => {
       const selectedData = baseResponse.data.find(base => base.url === url);
       return {
@@ -10088,18 +10186,41 @@ const getReportData = async function(projectURL, baseBranchInfo, prBranchInfo, c
  * @return {string} 
  */
 
-function _generateLogString(
-  rows,
-  timings
-) {
-    return `
-  [Lighthouse](https://developers.google.com/web/tools/lighthouse/) report for the changes in this PR:
+function _generateLogString(rows, timings, urls) {
+  let logString = `[Lighthouse](https://developers.google.com/web/tools/lighthouse/) report for the changes in this PR: \n `;
+
+  if(urls.length <= 1) {
+  logString += `
   | Category | Base Branch (score) | PR (score) |
   | ------------- | ------------- | ------------- |
   ${rows}
   | Measure | Base Branch (timing) | PR (timing) |
   | ------------- | ------------- | ------------- |
   ${timings}`
+
+  }else{
+    let rowString = '',rowLines = '', timeString = '', timeLines = '';
+
+    urls.forEach((url, i) => {
+      if(i === 0 ){
+        rowString = `| Category |`;  rowLines = `| ------- |`;
+        timeString = ` \n | Measure |`; timeLines = `| ------- |`;
+      }
+      rowString += ` Base Branch (score) <br /> ${url} | PR (score) <br /> ${url} |`;
+      rowLines += `------- | ------- |`;
+      timeString += ` Base Branch (timing) <br /> ${url} | PR (timing) <br /> ${url} |`;
+      timeLines += `------- | ------- |`;
+      if(i === urls.length - 1){
+        rowString += ` \n `; rowLines += ` \n `;
+        timeString += ` \n `; timeLines += ` \n `;
+      }
+    })
+    
+    logString += `${rowString} ${rowLines} ${rows}  ${timeString} ${timeLines} ${timings} `
+    
+  }
+
+  return logString;
 }
 
 /**
@@ -10112,8 +10233,7 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
   let rows = '';
   let timings = '';
   let urls = lhr[0].map(l => l.url)
-
-  Object.values(getObject(lhr).categories).forEach(cat => {
+  Object.values(getObject(lhr).lhr.categories).forEach(cat => {
     const categoryName = cat.id
     // | title | base[url1] | pr[url1] |base[url2]| pr[url2] |\n
     urls.forEach((url, i) => {
@@ -10122,9 +10242,8 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
       
       if(i === 0) rows += `| ${ cat.title} |`;
       rows += ` ${baseItem.lhr.categories[categoryName].score * 100} | ${prItem.lhr.categories[categoryName].score * 100} | `;
-      if(i === urls.length) rows += ` \n `;
+      if(i === urls.length - 1) rows += ` \n `;
     })
-    // rows += `| ${cat.title} | ${cat.score * 100} | ${lhr[1].categories[categoryName].score * 100} | \n`;
   });
 
   const userDefinedCategories =  [
@@ -10138,11 +10257,10 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
     'cumulative-layout-shift',
   ]
   
-  // timings += `| ${lhr[0].audits[cat].title} | ${lhr[0].audits[cat].displayValue} | ${lhr[1].audits[cat].displayValue} | \n`;
   // | title | base[url1] | pr[url1] |base[url2]| pr[url2] |\n
   userDefinedCategories.forEach(categoryName => {
 
-    const isAuditCategoryPresent = getObject(lhr).audits[categoryName]
+    const isAuditCategoryPresent = getObject(lhr).lhr.audits[categoryName]
     if(isAuditCategoryPresent){
 
       urls.forEach((url, i) => {
@@ -10150,8 +10268,8 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
         let prItem = lhr[1].find(lhrInfo => lhrInfo.url === url)
         
         if(i === 0) timings += `| ${ isAuditCategoryPresent.title} |`;
-        rows += ` ${baseItem.lhr.audits[categoryName].displayValue} | ${prItem.lhr.categories[categoryName].displayValue} | `;
-        if(i === urls.length) timings += ` \n `;
+        timings += ` ${baseItem.lhr.audits[categoryName].displayValue} | ${prItem.lhr.audits[categoryName].displayValue} | `;
+        if(i === urls.length - 1) timings += ` \n `;
       })
     }
 
@@ -10159,6 +10277,7 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
   return _generateLogString(
     rows,
     timings,
+    urls
   );
 }
 
@@ -10174,13 +10293,10 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
 const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, githubToken) {
   const mdReport = parseLighthouseResultsToString(lhr);
   core.startGroup('github payload ');
-  console.log('github payload', github.context);
   console.log('github string', mdReport);
   core.endGroup();
-  if (
-    github.context.payload.pull_request &&
-    github.context.payload.pull_request.comments_url
-  ) { 
+  
+  if (idx(github, _ => _.context.payload.pull_request.comments_url)) { 
     const comment = await axios(github.context.payload.pull_request.comments_url, {
       method: 'post',
       data: JSON.stringify({ body: mdReport}),
@@ -10189,7 +10305,6 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
         authorization: `Bearer ${githubToken}`,
       },
     }).then(function (response){
-      console.log(response)
       console.log(response.data)
       return response.data
     }).catch(function (error){
@@ -10199,17 +10314,10 @@ const postResultsToPullRequest = async function postResultsToPullRequest(core, l
     return comment
   } else {
     core.info('Missing pull request info or comments_url in contexts or secret');
-    core.info(github.context.payload);
+    console.log('Missing Information')
   }
 }
 
-const getObject = (lhr) => {
-  if(Array.isArray(lhr[0])){
-    return lhr[0][0]
-  }else{
-    return lhr[0]
-  }
-}
 module.exports = {
   getProjectID,
   getURLsToTest,

@@ -9,8 +9,9 @@ async function run() {
   const githubToken = core.getInput('githubToken');
   const lhciAppURL = core.getInput('lhciServerURL');
   // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
-  if(githubToken){
-    console.log('token is present');
+  if(!githubToken){
+    console.log('token not passed, will not be able to create PR comment with the results');
+    core.setFailed('Token to create PR Comment not provided');
   }
   // const octokit = github.getOctokit(githubToken);
 
@@ -25,15 +26,9 @@ async function run() {
   // const myToken = core.getInput("token", { required: true });
 
   try {
-    const ms = core.getInput('milliseconds');
-    core.info(`Waiting ${ms} milliseconds ...`);
-
-    core.debug((new Date()).toTimeString()); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
-    // await wait(parseInt(ms));
+    core.info((new Date()).toTimeString()); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
     
     // get project details
-    // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com';
-
     const projectURL = `${lhciAppURL}/v1/projects`;
     let projectID = await getProjectID(projectURL, core);
     console.log('Project ID identified : ', projectID)
@@ -77,7 +72,7 @@ async function run() {
 
     const prComment = await postResultsToPullRequest(core, collectLightHouseData, github, githubToken)
     core.info((new Date()).toTimeString());
-    console.log(prComment);
+    console.log('prComment',prComment);
     // core.setOutput('time', new Date().toTimeString());
   } catch (error) {
     core.setFailed(error.message);

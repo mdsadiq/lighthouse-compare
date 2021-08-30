@@ -8,10 +8,10 @@ const mock = new MockAdapter(axios);
 const mockResponse = require('./mock');
 const { getProjectID } = require('../utils');
 
-mock.onGet("/users").reply(200, mockResponse.projectInfo);
+mock.onGet("/v1/projects").reply(200, mockResponse.projectInfo);
 
 test('get project id', async () => {
-  let url = '/users';
+  let url = '/v1/projects';
   await expect(getProjectID(url)).resolves.toEqual(mockResponse.projectId)
 })
 
