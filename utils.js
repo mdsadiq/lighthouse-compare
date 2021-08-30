@@ -99,8 +99,9 @@ const getReportData = async function(projectURL, baseBranchInfo, prBranchInfo, c
 
     const baseResponse = responses[0]
     const prResponse = responses[1]
-
+    console.log(baseResponse)
     const baseLHRData = collectURLList.map(url => {
+      
       const selectedData = baseResponse.data.find(base => base.url === url);
       return {
         url: selectedData.url,

@@ -11,8 +11,9 @@ This template
 
 
 ## Quick Start
-- Copy the token provided on the authorization confirmation page and add it to your secret `secret`
-- Add the server url where the lhci server is running to `lhci-server`
+- Copy the token provided on the authorization confirmation page and add it to your secret `githubToken`
+- Add the server url where the lhci server is running to `lhciServerURL`
+- Add `baseBranch` if your default branch is not master (default branch against which your PR should be compared)
 - Enjoy as the it gets the results for you ! 🕵️ 
 
 
@@ -35,4 +36,5 @@ How to consume
 
 ## TO-DO
 
-  - handle case when base branch with 1URL compares to 2 URLs in another branch
+  [] support comparing more than one URL
+  [] support comparing more than one URL
