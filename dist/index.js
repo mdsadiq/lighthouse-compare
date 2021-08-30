@@ -10059,6 +10059,13 @@ const getObject = (lhr) => {
     return lhr[0]
   }
 }
+/**
+ * removes domain from url and returns rest on the right side
+ * @function
+ * @param {string} url - URL
+ * @return {string} rest of the path
+ */
+const stripDomain = (url) => '/' + url.split('/').splice(3,10).join('/');
 
 /**
  * Gets Project Id from the lighthouse server
@@ -10186,7 +10193,7 @@ const getReportData = async function(projectURL, baseBranchInfo, prBranchInfo, c
  * Takes lhr data of two branches and prepares a table
  * @function
  * @param {Array} lhr - github actions core 
- * @return {string} 
+ * @return {string} markdown table comparing two branches in multiple urls
  */
 
 function _generateLogString(rows, timings, urls) {
@@ -10205,13 +10212,14 @@ function _generateLogString(rows, timings, urls) {
     let rowString = '',rowLines = '', timeString = '', timeLines = '';
 
     urls.forEach((url, i) => {
+      let urlPath = stripDomain(url)
       if(i === 0 ){
         rowString = `| Category |`;  rowLines = `| ------- |`;
         timeString = ` \n | Measure |`; timeLines = `| ------- |`;
       }
-      rowString += ` Base Branch (score) <br /> ${url} | PR (score) <br /> ${url} |`;
+      rowString += ` Base Branch (score) <br /> ${urlPath} | PR (score) <br /> ${urlPath} |`;
       rowLines += `------- | ------- |`;
-      timeString += ` Base Branch (timing) <br /> ${url} | PR (timing) <br /> ${url} |`;
+      timeString += ` Base Branch (timing) <br /> ${urlPath} | PR (timing) <br /> ${urlPath} |`;
       timeLines += `------- | ------- |`;
       if(i === urls.length - 1){
         rowString += ` \n `; rowLines += ` \n `;
@@ -10219,10 +10227,8 @@ function _generateLogString(rows, timings, urls) {
       }
     })
     
-    logString += `${rowString} ${rowLines} ${rows}  ${timeString} ${timeLines} ${timings} `
-    
+    logString += `${rowString} ${rowLines} ${rows}  ${timeString} ${timeLines} ${timings} ` 
   }
-
   return logString;
 }
 
