@@ -250,9 +250,6 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
  */
 const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, githubToken) {
   const mdReport = parseLighthouseResultsToString(lhr);
-  core.startGroup('github payload ');
-  console.log('github string', mdReport);
-  core.endGroup();
   
   if (idx(github, _ => _.context.payload.pull_request.comments_url)) { 
     const comment = await axios(github.context.payload.pull_request.comments_url, {
