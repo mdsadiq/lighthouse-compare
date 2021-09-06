@@ -38,18 +38,21 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Compare lighthouse data
-        uses: mdsadiq/lighthouse-compare@v1.1.8
+        uses: mdsadiq/lighthouse-compare@v1.2.0
         with:
-          lhciServerURL: https://glacial-eyrie-43671.herokuapp.com
+          lhciServerURL: https://example.com
           githubToken: ${{ secret.LH_COMPARE_GITHUB_APP_TOKEN }}
 ```
 
 ```yaml
-    uses: mdsadiq/lighthouse-compare@v1.1.8
+    uses: mdsadiq/lighthouse-compare@v1.2.0
     with:
       lhciServerURL: https://example.com
       githubToken: ${{ secret.LH_COMPARE_GITHUB_APP_TOKEN }}
 ```
+
+## Screenshot of comment created for 2 url [ '/', '/day' ] against master branch
+![](images/pr_comment.png)
 
 ## ROADMAP
 
