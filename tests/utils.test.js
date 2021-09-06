@@ -12,7 +12,7 @@ mock.onGet("/v1/projects").reply(200, mockResponse.projectInfo);
 
 test('get project id', async () => {
   let url = '/v1/projects';
-  await expect(getProjectID(url)).resolves.toEqual(mockResponse.projectId)
+  await expect(getProjectID({}, url)).resolves.toEqual(mockResponse.projectId)
 })
 
 
