@@ -250,7 +250,9 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
  */
 const prepareAndPostComment = async function prepareAndPostComment(core, lhr, github, githubToken) {
   const mdReport = parseLighthouseResultsToString(lhr);
-  
+  core.debug("github context", github);
+  core.debug("github context", github.context.payload.pull_request);
+  console.log('github ------ >', github)
   if (idx(github, _ => _.context.payload.pull_request.comments_url)) { 
     throw new Error('Missing comments_url in github contexts')
   }

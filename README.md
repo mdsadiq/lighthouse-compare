@@ -19,22 +19,39 @@ This template
 
 ## Inputs
 `token`
-Provide your token
-`serverURL`
-Provide your server URL
+github token to make comment from which PR was raised
+`lhciServerURL`
+URL where lighthouse server is deployed
+`baseBranch`
+if you use non `master` branch, pass it here
 
 ## Usage
 
-How to consume
+How to consume:
+if this is your first time working with github actions, then use the below example.
+if you have already worked on it, go for code snippet
 
 ```yaml
-    uses: mdsadiq/lighthouse-compare@v1.1
-    with:
-      lhci-server: https://example.com
-      secret: ${{ secret.LH_COMPARE_GITHUB_APP_TOKEN }}
+jobs:
+  lighthouse-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Compare lighthouse data
+        uses: mdsadiq/lighthouse-compare@v1.1.8
+        with:
+          lhciServerURL: https://glacial-eyrie-43671.herokuapp.com
+          githubToken: ${{ secret.LH_COMPARE_GITHUB_APP_TOKEN }}
 ```
 
-## TO-DO
+```yaml
+    uses: mdsadiq/lighthouse-compare@v1.1.8
+    with:
+      lhciServerURL: https://example.com
+      githubToken: ${{ secret.LH_COMPARE_GITHUB_APP_TOKEN }}
+```
 
-  [] support comparing more than one URL
-  [] support comparing more than one URL
+## ROADMAP
+
+  [x] support comparing more than one URL
+  [] support lhci servers that are protected behind authentication
