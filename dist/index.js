@@ -7,86 +7,93 @@ require('./sourcemap-register.js');module.exports =
 
 const core = __nccwpck_require__(2186);
 const github = __nccwpck_require__(5438);
-const { getProjectID, getURLsToTest, getBaseBranchInfo, getPRBranchInfo, getReportData, postResultsToPullRequest } = __nccwpck_require__(1252);
+const idx = __nccwpck_require__(8964);
 
-const context = github.context;
+const {
+  getProjectID,
+  getURLsToTest,
+  getBaseBranchInfo,
+  getPRBranchInfo,
+  getReportData,
+  prepareAndPostComment,
+} = __nccwpck_require__(1252);
 
 // most @actions toolkit packages have async methods
 async function run() {
-  const githubToken = core.getInput('githubToken');
-  const lhciAppURL = core.getInput('lhciServerURL');
-  // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
-  if(githubToken){
-    console.log('token is present');
-  }
-  // const octokit = github.getOctokit(githubToken);
+  const githubToken = core.getInput("githubToken");
+  const lhciServerURL = core.getInput("lhciServerURL");
+  const baseBranch = core.getInput("baseBranch");
 
-  // if (!secret) {
-  //   core.setFailed('secret not defined');
-  //   core.warning('');
-  // }
-  if(!lhciAppURL){
-    core.setFailed('Lighthouse Server URL not provided');
+  if (!githubToken) {
+    core.setFailed("Token to create PR Comment not provided");
   }
-
-  // const myToken = core.getInput("token", { required: true });
+  // get id of commit to compare
+  const currentCommitHash = github.context.payload.after;
+  if (!currentCommitHash) {
+    core.setFailed("unable to get current commit hash");
+  }
+  if (!lhciServerURL) {
+    core.setFailed("Lighthouse Server URL not provided");
+  }
 
   try {
-    const ms = core.getInput('milliseconds');
-    core.info(`Waiting ${ms} milliseconds ...`);
-
-    core.debug((new Date()).toTimeString()); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
-    // await wait(parseInt(ms));
-    
     // get project details
-    // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com';
-
-    const projectURL = `${lhciAppURL}/v1/projects`;
-    let projectID = await getProjectID(projectURL, core);
-    console.log('Project ID identified : ', projectID)
-
-    // get all urls where lhci have to be tested
-    // const listURL = `${lhciAppURL}/v1/projects/${projectID}/urls`
-    // const collectURLList = await getURLsToTest(listURL);
-    const collectURLList = [ { "url": "http://localhost:PORT/" } ];
-
-    // find base build id
-    const masterBranchName = 'master'; // main in new repos
-    const baseBranchBuildURL = `${lhciAppURL}/v1/projects/${projectID}/builds?branch=${masterBranchName}&limit=20`;
-
-    /*
-    *   get branch information about base branch (ideally master or main)
-    *   returns {Object}
+    const projectListURL = `${lhciServerURL}/v1/projects`;
+    const projectID = await getProjectID(core, projectListURL);
+    
+    /* Build Project URL using project id obtained from lhci server
     */
-    const baseBranchInfo = await getBaseBranchInfo(baseBranchBuildURL);
-    
-    // get id of commit to compare
-    // console.log('github context', typeof github.context.payload);
-    console.log('github context', context.payload.after);
-    // console.log('github context pr', context.payload.pull_request.number);
-    const currentCommitHash = github.context.payload.after;    
-    const PRBranchURL = `${lhciAppURL}/v1/projects/${projectID}/builds?limit=30`;
-    console.log('PRBranchURL', PRBranchURL, currentCommitHash)
-    if(!currentCommitHash){
-      console.log('unable to get current commit hash');
-    }
-    const PRBranchInfo = await getPRBranchInfo(PRBranchURL, currentCommitHash);
-    console.log('PRBranchInfo obtained', PRBranchInfo)
-    // get report for each branch
-    const lhciDataURL =`${projectURL}/${projectID}/builds/$$buildId$$/runs?representative=true`
-    
-    console.log('lhciDataURL', lhciDataURL);
-    // get lighthouse reports for baseBranch and PRBranch
-    const collectLightHouseData = await getReportData(lhciDataURL, baseBranchInfo, PRBranchInfo, collectURLList);
-    core.startGroup('collectLightHouseData');
-    console.log('collectLightHouseData', collectLightHouseData, collectLightHouseData.length)
-    core.endGroup();
+    const projectURL = `${lhciServerURL}/v1/projects/${projectID}`;
 
-    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github, githubToken)
-    core.info((new Date()).toTimeString());
-    console.log(prComment);
-    // core.setOutput('time', new Date().toTimeString());
+
+    const listURL = `${projectURL}/urls`;
+    /* get all urls where lighthouse audit has run
+    * list
+    */
+    const collectURLList = await getURLsToTest(core, listURL);
+
+    //  prepare options for axios call
+    const baseBranchOpts = {
+      url: `${projectURL}/builds`,
+      params: {
+        branch: baseBranch,
+        limit: 20
+      }
+    }
+    const baseBranchInfo = await getBaseBranchInfo(core, baseBranchOpts);
+    core.debug("baseBranchInfo obtained", baseBranchInfo);
+
+    //  prepare options for axios call
+    const prBranchOpts = {
+      url: `${projectURL}/builds`,
+      params: {
+        limit: 20
+      }
+    }
+    const PRBranchInfo = await getPRBranchInfo(core, prBranchOpts, currentCommitHash);
+    core.debug("PRBranchInfo obtained", PRBranchInfo);
+
+    // url to get light house report
+    const lhciDataURL = `${projectURL}/builds/$$buildId$$/runs?representative=true`;
+
+    /* get lighthouse reports for baseBranch and PRBranch
+    */
+    const lightHouseData = await getReportData(core,
+      lhciDataURL,
+      baseBranchInfo,
+      PRBranchInfo,
+      collectURLList
+    );
+
+    const prComment = await prepareAndPostComment(
+      core,
+      lightHouseData,
+      github,
+      githubToken
+    );
+    core.info("pr comment created at", idx(prComment, _ => _.created_at));
   } catch (error) {
+    core.info('Lighthouse caught an error :' ,error)
     core.setFailed(error.message);
   }
 }
@@ -7598,6 +7605,101 @@ module.exports = (flag, argv) => {
 
 /***/ }),
 
+/***/ 8964:
+/***/ ((module) => {
+
+"use strict";
+/**
+ * Copyright (c) 2013-present, Facebook, Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ *  strict
+ * @format
+ */
+
+ // eslint-disable-line strict
+
+/**
+ * Traverses properties on objects and arrays. If an intermediate property is
+ * either null or undefined, it is instead returned. The purpose of this method
+ * is to simplify extracting properties from a chain of maybe-typed properties.
+ *
+ * === EXAMPLE ===
+ *
+ * Consider the following type:
+ *
+ *   const props: {
+ *     user: ?{
+ *       name: string,
+ *       friends: ?Array<User>,
+ *     }
+ *   };
+ *
+ * Getting to the friends of my first friend would resemble:
+ *
+ *   props.user &&
+ *   props.user.friends &&
+ *   props.user.friends[0] &&
+ *   props.user.friends[0].friends
+ *
+ * Instead, `idx` allows us to safely write:
+ *
+ *   idx(props, _ => _.user.friends[0].friends)
+ *
+ * The second argument must be a function that returns one or more nested member
+ * expressions. Any other expression has undefined behavior.
+ *
+ * === NOTE ===
+ *
+ * The code below exists for the purpose of illustrating expected behavior and
+ * is not meant to be executed. The `idx` function is used in conjunction with a
+ * Babel transform that replaces it with better performing code:
+ *
+ *   props.user == null ? props.user :
+ *   props.user.friends == null ? props.user.friends :
+ *   props.user.friends[0] == null ? props.user.friends[0] :
+ *   props.user.friends[0].friends
+ *
+ * All this machinery exists due to the fact that an existential operator does
+ * not currently exist in JavaScript.
+ */
+
+function idx(input, accessor) {
+  try {
+    return accessor(input);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      if (nullPattern.test(error)) {
+        return null;
+      } else if (undefinedPattern.test(error)) {
+        return undefined;
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Some actual error messages for null:
+ *
+ * TypeError: Cannot read property 'bar' of null
+ * TypeError: Cannot convert null value to object
+ * TypeError: foo is null
+ * TypeError: null has no properties
+ * TypeError: null is not an object (evaluating 'foo.bar')
+ * TypeError: null is not an object (evaluating '(" undefined ", null).bar')
+ */
+var nullPattern = /^null | null$|^[^(]* null /i;
+var undefinedPattern = /^undefined | undefined$|^[^(]* undefined /i;
+
+idx.default = idx;
+module.exports = idx;
+
+
+/***/ }),
+
 /***/ 900:
 /***/ ((module) => {
 
@@ -9962,63 +10064,86 @@ function wrappy (fn, cb) {
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const axios = __nccwpck_require__(6545);
+const idx = __nccwpck_require__(8964);
 
+const getObject = (lhr) => {
+  if(Array.isArray(lhr[0])){
+    return lhr[0][0]
+  }else{
+    return lhr[0]
+  }
+}
+/**
+ * removes domain from url and returns rest on the right side
+ * @function
+ * @param {Object} core - core
+ * @param {string} url - URL
+ * @return {string} rest of the path
+ */
+const stripDomain = (url) => '/' + url.split('/').splice(3,10).join('/');
+
+const removeLastSlash = (url) => url.replace(/\/$/, "");
 /**
  * Gets Project Id from the lighthouse server
  * @function
+ * @param {Object} core - core
  * @param {string} url - URL to send request.
  * @return {string} project id
  */
-const getProjectID = async function(url, core) {
-  return await axios.get(url).then(function (response) {
+const getProjectID = async function getProjectID(core, url) {
+  return await axios.get(removeLastSlash(url)).then(function (response) {
     return response.data[0].id
   }).catch(function (error) {
-    // handle error
-    core.info('github payload error', error);
-    console.log(error, 'error fetching project id');
+    core.info('error fetching project id', error);
+    throw new Error(error)
   })
 };
 
 /**
  * Gets all the URLs on which Lighthouse was conducted
  * @function
+ * @param {Object} core - core
  * @param {string} url - URL to send request.
  * @return {Object} 
  */
-const getURLsToTest = async function(url){
+const getURLsToTest = async function(core, url) {
   return await axios.get(url).then(function (response) {
     return response.data
   }).catch(function (error) {
-    // handle error
-    console.log(error, 'error fetching urls to test');
+    core.info('error fetching project id', error);
+    throw new Error(error)
   })
 };
 
 /**
  * Gets Information about base branch
  * @function
- * @param {string} url - URL to send request.
+ * @param {Object} core - core
+ * @param {Object} options - URL to send request.
  * @return {Object} 
  */
-const getBaseBranchInfo = async function getBaseBranchInfo(url){
-  return await axios.get(url).then(function (response) {
+const getBaseBranchInfo = async function getBaseBranchInfo(core ,options){
+  const { url, params } = options;
+  return await axios.get(url, { params }).then(function (response) {
     if(response.data.length > 0) return response.data[0];
     throw new Error('No build available from base branch');
   }).catch(function (error) {
-    // handle error
-    console.log(error, 'error fetching Base branch info');
+    core.info('error fetching Base branch info');
+    throw new Error(error)
   })
 }
 
 /**
  * Gets Information about branch from which pull request is created
  * @function
- * @param {string} url - URL to send request.
+ * @param {Object} core - core
+ * @param {Object} options - URL to send request.
  * @param {string} commitHash - hash of the commit from which lh report was generated.
  * @return {Object} 
  */
-const getPRBranchInfo = async function getPRBranchInfo(url, commitHash) {
-  return await axios.get(url).then(function (response) {
+const getPRBranchInfo = async function getPRBranchInfo(core ,options, commitHash) {
+  const { url, params } = options;
+  return await axios.get(url, { params }).then(function (response) {
     const selectedBuild = response.data.find(build => { 
       const splitMessage = build.commitMessage.split(' ')
       if(splitMessage[1] === commitHash){
@@ -10026,69 +10151,125 @@ const getPRBranchInfo = async function getPRBranchInfo(url, commitHash) {
       }
       return false
     });
-    console.log('selectedBuild', selectedBuild)
+    core.info('selectedBuild', selectedBuild)
     return selectedBuild
   }).catch(function (error) {
-    // handle error
-    console.log(error, 'error fetching PR branch info');
+    core.info('error fetching PR branch info');
+    throw new Error(error)
   })
 }
 
 /**
  * Gets lighthouse report for base and pull request
  * @function
+ * @param {Object} core - core
  * @param {string} projectURL - URL to send request.
  * @param {Object} baseBranchInfo - information about the base branch.
- * @param {Object} PRBranchInfo - information about the pull request.
+ * @param {Object} prBranchInfo - information about the pull request.
  * @param {Array} collectURLList - List of urls.
  * @return {Array} - Array of lh reports 
  */
-const getReportData = async function(projectURL, baseBranchInfo, PRBranchInfo, collectURLList) {
+const getReportData = async function(core ,projectURL, baseBranchInfo, prBranchInfo, collectURLList) {
   const baseURL = projectURL.replace('$$buildId$$', baseBranchInfo.id);
-  const prURL = projectURL.replace('$$buildId$$', PRBranchInfo.id);
-  console.log(baseURL, prURL)
+  const prURL = projectURL.replace('$$buildId$$', prBranchInfo.id);
   const baseAxios = axios.get(baseURL);
   const PRAxios = axios.get(prURL);
+  
   return await axios.all([ baseAxios, PRAxios ]).then(axios.spread((...responses) => {
-    console.log('getReportData', Object.keys(responses))
-    const responseOne = responses[0]
-    const responseTwo = responses[1]
-    console.log('getReportData',Object.keys(responseOne.data))
-    const baseLHRData = JSON.parse(responseOne.data[0].lhr);
-    const prLHRData = JSON.parse(responseTwo.data[0].lhr);
-    
+    const baseResponse = responses[0]
+    const prResponse = responses[1]
+    const baseLHRData = collectURLList.map(item => {
+      const selectedLHReport = baseResponse.data.find(base => base.url === item.url);
+      return {
+        url: selectedLHReport.url,
+        lhr: JSON.parse(selectedLHReport.lhr),
+        branch: baseBranchInfo.branch
+      }
+    })
+    const prLHRData = collectURLList.map(item => {
+      const selectedLHReport = prResponse.data.find(base => base.url === item.url);
+      return {
+        url: selectedLHReport.url,
+        lhr: JSON.parse(selectedLHReport.lhr),
+        branch: prBranchInfo.branch
+      }
+    })
     return [ baseLHRData, prLHRData ];
 
   })).catch(function (error) {
-    // handle error
-    console.log(error, 'getReportData error');
+    core.info('error getting lighthouse data');
+    throw new Error(error)
   })
 
 }
 
-function _generateLogString(
-  rows,
-  timings
-) {
-    return `
-  [Lighthouse](https://developers.google.com/web/tools/lighthouse/) report for the changes in this PR:
+/**
+ * Takes lhr data of two branches and prepares a table
+ * @function
+ * @param {Array} lhr - github actions core 
+ * @return {string} markdown table comparing two branches in multiple urls
+ */
+
+function _generateLogString(rows, timings, urls) {
+  let logString = `[Lighthouse](https://developers.google.com/web/tools/lighthouse/) report for the changes in this PR: \n `;
+
+  if(urls.length <= 1) {
+  logString += `
   | Category | Base Branch (score) | PR (score) |
   | ------------- | ------------- | ------------- |
   ${rows}
   | Measure | Base Branch (timing) | PR (timing) |
   | ------------- | ------------- | ------------- |
   ${timings}`
+
+  }else{
+    let rowString = '',rowLines = '', timeString = '', timeLines = '';
+
+    urls.forEach((url, i) => {
+      let urlPath = stripDomain(url)
+      if(i === 0 ){
+        rowString = `| Category |`;  rowLines = `| ------- |`;
+        timeString = ` \n | Measure |`; timeLines = `| ------- |`;
+      }
+      rowString += ` Base Branch (score) <br /> ${urlPath} | PR (score) <br /> ${urlPath} |`;
+      rowLines += `------- | ------- |`;
+      timeString += ` Base Branch (timing) <br /> ${urlPath} | PR (timing) <br /> ${urlPath} |`;
+      timeLines += `------- | ------- |`;
+      if(i === urls.length - 1){
+        rowString += ` \n `; rowLines += ` \n `;
+        timeString += ` \n `; timeLines += ` \n `;
+      }
+    })
+    
+    logString += `${rowString} ${rowLines} ${rows}  ${timeString} ${timeLines} ${timings} ` 
+  }
+  return logString;
 }
+
+/**
+ * Takes lhr data of two branches and prepares a table
+ * @function
+ * @param {Array} lhr - lighthouse data
+ * @return {string} 
+ */
 const parseLighthouseResultsToString = function parseLighthouseResultsToString(lhr) {
   let rows = '';
   let timings = '';
-
-  Object.values(lhr[0].categories).forEach(cat => {
+  let urls = lhr[0].map(l => l.url)
+  Object.values(getObject(lhr).lhr.categories).forEach(cat => {
     const categoryName = cat.id
-    rows += `| ${cat.title} | ${cat.score * 100} | ${lhr[1].categories[categoryName].score * 100} | \n`;
+    // | title | base[url1] | pr[url1] |base[url2]| pr[url2] |\n
+    urls.forEach((url, i) => {
+      let baseItem = lhr[0].find(lhrInfo => lhrInfo.url === url)
+      let prItem = lhr[1].find(lhrInfo => lhrInfo.url === url)
+      
+      if(i === 0) rows += `| ${ cat.title} |`;
+      rows += ` ${baseItem.lhr.categories[categoryName].score * 100} | ${prItem.lhr.categories[categoryName].score * 100} | `;
+      if(i === urls.length - 1) rows += ` \n `;
+    })
   });
 
-  [
+  const userDefinedCategories =  [
     'first-contentful-paint',
     'interactive',
     'first-meaningful-paint',
@@ -10097,14 +10278,29 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
     'speed-index',
     'largest-contentful-paint',
     'cumulative-layout-shift',
-  ].forEach(cat => {
-    if (lhr[0].audits[cat]) {
-      timings += `| ${lhr[0].audits[cat].title} | ${lhr[0].audits[cat].displayValue} | ${lhr[1].audits[cat].displayValue} | \n`;
+  ]
+  
+  // | title | base[url1] | pr[url1] |base[url2]| pr[url2] |\n
+  userDefinedCategories.forEach(categoryName => {
+
+    const isAuditCategoryPresent = getObject(lhr).lhr.audits[categoryName]
+    if(isAuditCategoryPresent){
+
+      urls.forEach((url, i) => {
+        let baseItem = lhr[0].find(lhrInfo => lhrInfo.url === url)
+        let prItem = lhr[1].find(lhrInfo => lhrInfo.url === url)
+        
+        if(i === 0) timings += `| ${ isAuditCategoryPresent.title} |`;
+        timings += ` ${baseItem.lhr.audits[categoryName].displayValue} | ${prItem.lhr.audits[categoryName].displayValue} | `;
+        if(i === urls.length - 1) timings += ` \n `;
+      })
     }
+
   });
   return _generateLogString(
     rows,
     timings,
+    urls
   );
 }
 
@@ -10117,61 +10313,34 @@ const parseLighthouseResultsToString = function parseLighthouseResultsToString(l
  * @param {string} secret - github token that has permission to add comment.
  * @return {Object} 
  */
-const postResultsToPullRequest = async function postResultsToPullRequest(core, lhr, github, githubToken) {
-  const string = parseLighthouseResultsToString(lhr);
-  core.startGroup('github payload ');
-  console.log('github payload', github.context);
-  console.log('github string', string);
-  core.endGroup();
-  if (
-    github.context.payload.pull_request &&
-    github.context.payload.pull_request.comments_url
-  ) { 
-    const comment = await axios(github.context.payload.pull_request.comments_url, {
-      method: 'post',
-      data: JSON.stringify({ body: string}),
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${githubToken}`,
-      },
-    }).then(function (response){
-      console.log(response)
-      console.log(response.data)
-      return response.data
-    }).catch(function (error){
-      console.log('error', error)
-    });
-
-    // if(github.context.payload.eventName === 'pull_request'){
-    //   console.log('event is: pull_request');
-    // }
-    // const issue_number = github.context.payload.number;
-    // const fullName =github.context.payload.repository.full_name
-    // const [owner, repo] = fullName.split('/') 
-
-    // const { data: comment } = await octokit.rest.issues.createComment({
-    //   owner,
-    //   repo,
-    //   issue_number,
-    //   body: string,
-    // });
-    // core.info(
-    //   `Created comment id '${comment.id}' on issue '${issue_number}'.`
-    // );
-    // core.setOutput("comment-id", comment.id);
-    // console.log('postComment', comment)
-    return comment
-  } else {
-    core.info('Missing pull request info or comments_url in contexts or secret');
-    core.info(github.context.payload);
+const prepareAndPostComment = async function prepareAndPostComment(core, lhr, github, githubToken) {
+  const mdReport = parseLighthouseResultsToString(lhr);
+  core.debug("github context", github);
+  if (!idx(github, _ => _.context.payload.pull_request.comments_url)) { 
+    throw new Error('Missing comments_url in github contexts')
   }
+
+  const comment = await axios(github.context.payload.pull_request.comments_url, {
+    method: 'post',
+    data: JSON.stringify({ body: mdReport}),
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${githubToken}`,
+    },
+  }).then(function (response){
+    return response.data
+  }).catch(function (error){
+    core.info('Error when commenting');
+    throw new Error(error)
+  });
+  return comment
 }
 
 module.exports = {
   getProjectID,
   getURLsToTest,
   getBaseBranchInfo,
-  postResultsToPullRequest,
+  prepareAndPostComment,
   getReportData,
   getPRBranchInfo
 };

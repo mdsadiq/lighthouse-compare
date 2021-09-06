@@ -1,13 +1,14 @@
 name: 'lighthouse-compare'
 description: 'Compare Lighthouse results of base with PR and comment on PR'
+author: 'mdsadiq'
 inputs:
   lhciServerURL:  # id of input
-    description: 'url where lhci server is hosted'
+    description: 'url where lhci server is hosted,[ without backslash in the end ]'
     required: true
   githubToken: # github token to post comment
     description: 'github token that gives permission to comment on a PR'
     required: false
-    default: '${{ github.token }}'
+    default: ${{ github.token }}
   baseBranch: # github token to post comment
     description: 'base branch in your project against which new change should be compared'
     required: false

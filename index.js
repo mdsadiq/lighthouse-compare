@@ -1,85 +1,92 @@
-const core = require('@actions/core');
-const github = require('@actions/github');
-const { getProjectID, getURLsToTest, getBaseBranchInfo, getPRBranchInfo, getReportData, postResultsToPullRequest } = require('./utils');
+const core = require("@actions/core");
+const github = require("@actions/github");
+const idx = require("idx");
 
-const context = github.context;
+const {
+  getProjectID,
+  getURLsToTest,
+  getBaseBranchInfo,
+  getPRBranchInfo,
+  getReportData,
+  prepareAndPostComment,
+} = require("./utils");
 
 // most @actions toolkit packages have async methods
 async function run() {
-  const githubToken = core.getInput('githubToken');
-  const lhciAppURL = core.getInput('lhciServerURL');
-  // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com'
-  if(githubToken){
-    console.log('token is present');
-  }
-  // const octokit = github.getOctokit(githubToken);
+  const githubToken = core.getInput("githubToken");
+  const lhciServerURL = core.getInput("lhciServerURL");
+  const baseBranch = core.getInput("baseBranch");
 
-  // if (!secret) {
-  //   core.setFailed('secret not defined');
-  //   core.warning('');
-  // }
-  if(!lhciAppURL){
-    core.setFailed('Lighthouse Server URL not provided');
+  if (!githubToken) {
+    core.setFailed("Token to create PR Comment not provided");
   }
-
-  // const myToken = core.getInput("token", { required: true });
+  // get id of commit to compare
+  const currentCommitHash = github.context.payload.after;
+  if (!currentCommitHash) {
+    core.setFailed("unable to get current commit hash");
+  }
+  if (!lhciServerURL) {
+    core.setFailed("Lighthouse Server URL not provided");
+  }
 
   try {
-    const ms = core.getInput('milliseconds');
-    core.info(`Waiting ${ms} milliseconds ...`);
-
-    core.debug((new Date()).toTimeString()); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
-    // await wait(parseInt(ms));
-    
     // get project details
-    // const lhciAppURL = 'https://glacial-eyrie-43671.herokuapp.com';
-
-    const projectURL = `${lhciAppURL}/v1/projects`;
-    let projectID = await getProjectID(projectURL, core);
-    console.log('Project ID identified : ', projectID)
-
-    // get all urls where lhci have to be tested
-    // const listURL = `${lhciAppURL}/v1/projects/${projectID}/urls`
-    // const collectURLList = await getURLsToTest(listURL);
-    const collectURLList = [ { "url": "http://localhost:PORT/" } ];
-
-    // find base build id
-    const masterBranchName = 'master'; // main in new repos
-    const baseBranchBuildURL = `${lhciAppURL}/v1/projects/${projectID}/builds?branch=${masterBranchName}&limit=20`;
-
-    /*
-    *   get branch information about base branch (ideally master or main)
-    *   returns {Object}
+    const projectListURL = `${lhciServerURL}/v1/projects`;
+    const projectID = await getProjectID(core, projectListURL);
+    
+    /* Build Project URL using project id obtained from lhci server
     */
-    const baseBranchInfo = await getBaseBranchInfo(baseBranchBuildURL);
-    
-    // get id of commit to compare
-    // console.log('github context', typeof github.context.payload);
-    console.log('github context', context.payload.after);
-    // console.log('github context pr', context.payload.pull_request.number);
-    const currentCommitHash = github.context.payload.after;    
-    const PRBranchURL = `${lhciAppURL}/v1/projects/${projectID}/builds?limit=30`;
-    console.log('PRBranchURL', PRBranchURL, currentCommitHash)
-    if(!currentCommitHash){
-      console.log('unable to get current commit hash');
-    }
-    const PRBranchInfo = await getPRBranchInfo(PRBranchURL, currentCommitHash);
-    console.log('PRBranchInfo obtained', PRBranchInfo)
-    // get report for each branch
-    const lhciDataURL =`${projectURL}/${projectID}/builds/$$buildId$$/runs?representative=true`
-    
-    console.log('lhciDataURL', lhciDataURL);
-    // get lighthouse reports for baseBranch and PRBranch
-    const collectLightHouseData = await getReportData(lhciDataURL, baseBranchInfo, PRBranchInfo, collectURLList);
-    core.startGroup('collectLightHouseData');
-    console.log('collectLightHouseData', collectLightHouseData, collectLightHouseData.length)
-    core.endGroup();
+    const projectURL = `${lhciServerURL}/v1/projects/${projectID}`;
 
-    const prComment = await postResultsToPullRequest(core, collectLightHouseData, github, githubToken)
-    core.info((new Date()).toTimeString());
-    console.log(prComment);
-    // core.setOutput('time', new Date().toTimeString());
+
+    const listURL = `${projectURL}/urls`;
+    /* get all urls where lighthouse audit has run
+    * list
+    */
+    const collectURLList = await getURLsToTest(core, listURL);
+
+    //  prepare options for axios call
+    const baseBranchOpts = {
+      url: `${projectURL}/builds`,
+      params: {
+        branch: baseBranch,
+        limit: 20
+      }
+    }
+    const baseBranchInfo = await getBaseBranchInfo(core, baseBranchOpts);
+    core.debug("baseBranchInfo obtained", baseBranchInfo);
+
+    //  prepare options for axios call
+    const prBranchOpts = {
+      url: `${projectURL}/builds`,
+      params: {
+        limit: 20
+      }
+    }
+    const PRBranchInfo = await getPRBranchInfo(core, prBranchOpts, currentCommitHash);
+    core.debug("PRBranchInfo obtained", PRBranchInfo);
+
+    // url to get light house report
+    const lhciDataURL = `${projectURL}/builds/$$buildId$$/runs?representative=true`;
+
+    /* get lighthouse reports for baseBranch and PRBranch
+    */
+    const lightHouseData = await getReportData(core,
+      lhciDataURL,
+      baseBranchInfo,
+      PRBranchInfo,
+      collectURLList
+    );
+
+    const prComment = await prepareAndPostComment(
+      core,
+      lightHouseData,
+      github,
+      githubToken
+    );
+    core.info("pr comment created at", idx(prComment, _ => _.created_at));
   } catch (error) {
+    core.info('Lighthouse caught an error :' ,error)
     core.setFailed(error.message);
   }
 }
