@@ -1,13 +1,13 @@
 # Create a Lighthouse Compare Action
 
 Use this action to compare lighthouse results between base branch(master/main) and triggered branch
-This template
 
+![](images/lh_compare_mini.PNG)
 
 ## Features
 - ✅ Collect data from lhci server
 - 😻 See both results compared in comments
-- ⚙️ Run it on your custom server running `lighthouse-server`
+- ⚙️ Link it on your server where `lighthouse-server` is running
 
 
 ## Quick Start
@@ -28,8 +28,8 @@ if you use non `master` branch, pass it here
 ## Usage
 
 How to consume:
-if this is your first time working with github actions, then use the below example.
-if you have already worked on it, go for code snippet
+If this is your first time working with github actions, then use the below example.
+If you have already worked on it, go for 2nd code snippet
 
 ```yaml
 jobs:
